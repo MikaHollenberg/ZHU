@@ -9,5 +9,6 @@ export interface Profile {
   geboortedatum: string | null
   geboorteplaats: string | null
   rol: UserRole
+  gearchiveerd: boolean
   aangemaakt_op: string
 }

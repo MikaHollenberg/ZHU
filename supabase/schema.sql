@@ -12,6 +12,7 @@ create type beschikbaarheid_type as enum ('hele_dag_beschikbaar', 'hele_dag_onbe
 create type beschikbaarheid_status as enum ('open', 'ingepland');
 create type les_status as enum ('gepland', 'verzet', 'geannuleerd');
 create type label_type as enum ('verzetten', 'annuleren', 'beide');
+create type les_soort as enum ('priveles', 'duo_cursus');
 
 -- ------------------------------------------------------------
 -- Tabel: profiles (cursisten + beheerder)
@@ -26,6 +27,7 @@ create table public.profiles (
   geboortedatum date,
   geboorteplaats text,
   rol user_role not null default 'cursist',
+  gearchiveerd boolean not null default false,
   aangemaakt_op timestamptz not null default now()
 );
 
@@ -51,9 +53,21 @@ create policy "Cursist ziet eigen profiel"
   on public.profiles for select
   using (auth.uid() = id or public.is_beheerder());
 
+-- Helperfunctie: check of de ingelogde gebruiker gearchiveerd is.
+create or replace function public.is_gearchiveerd()
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select coalesce((select gearchiveerd from public.profiles where id = auth.uid()), false);
+$$;
+
+-- Een gearchiveerde cursist kan zijn eigen profiel niet meer bewerken.
 create policy "Cursist bewerkt eigen profiel"
   on public.profiles for update
-  using (auth.uid() = id or public.is_beheerder());
+  using ((auth.uid() = id and not public.is_gearchiveerd()) or public.is_beheerder());
 
 -- Voorkom dat een cursist zichzelf tot beheerder promoveert via de update-policy hierboven.
 create or replace function public.prevent_role_escalation()
@@ -104,6 +118,46 @@ create trigger on_auth_user_created
   for each row execute function public.handle_new_user();
 
 -- ------------------------------------------------------------
+-- Tabel: tweede_persoon
+-- Gegevens van een eventuele tweede persoon bij een duo-cursus.
+-- Deze persoon krijgt geen eigen account; de boeker blijft het
+-- aanspreekpunt.
+-- ------------------------------------------------------------
+-- Eén vaste duo-partner per boeker: wordt hergebruikt/voorgevuld bij
+-- elke duo-cursus in plaats van steeds opnieuw ingevuld te worden.
+create table public.tweede_persoon (
+  id uuid primary key default gen_random_uuid(),
+  boeker_id uuid not null references public.profiles (id) on delete cascade,
+  voornaam text not null,
+  achternaam text not null,
+  email text not null,
+  telefoonnummer text,
+  geboortedatum date,
+  geboorteplaats text,
+  aangemaakt_op timestamptz not null default now(),
+  constraint tweede_persoon_boeker_id_unique unique (boeker_id)
+);
+
+alter table public.tweede_persoon enable row level security;
+
+-- Alleen de boeker zelf en de beheerder mogen deze gegevens zien — nooit andere cursisten.
+create policy "Boeker ziet eigen tweede personen"
+  on public.tweede_persoon for select
+  using (auth.uid() = boeker_id or public.is_beheerder());
+
+create policy "Boeker voegt eigen tweede persoon toe"
+  on public.tweede_persoon for insert
+  with check ((auth.uid() = boeker_id and not public.is_gearchiveerd()) or public.is_beheerder());
+
+create policy "Boeker wijzigt eigen tweede persoon"
+  on public.tweede_persoon for update
+  using ((auth.uid() = boeker_id and not public.is_gearchiveerd()) or public.is_beheerder());
+
+create policy "Boeker verwijdert eigen tweede persoon"
+  on public.tweede_persoon for delete
+  using ((auth.uid() = boeker_id and not public.is_gearchiveerd()) or public.is_beheerder());
+
+-- ------------------------------------------------------------
 -- Tabel: beschikbaarheid
 -- ------------------------------------------------------------
 create table public.beschikbaarheid (
@@ -114,13 +168,19 @@ create table public.beschikbaarheid (
   starttijd time,
   eindtijd time,
   status beschikbaarheid_status not null default 'open',
+  soort les_soort not null default 'priveles',
+  tweede_persoon_id uuid references public.tweede_persoon (id),
   aangemaakt_op timestamptz not null default now(),
   -- Een tijdvak moet minimaal 2 uur duren.
   constraint tijdvak_tijden_check check (
     (type = 'tijdvak' and starttijd is not null and eindtijd is not null and eindtijd - starttijd >= interval '2 hours')
     or (type <> 'tijdvak' and starttijd is null and eindtijd is null)
   ),
-  constraint beschikbaarheid_cursist_datum_unique unique (cursist_id, datum)
+  constraint beschikbaarheid_cursist_datum_unique unique (cursist_id, datum),
+  constraint beschikbaarheid_duo_check check (
+    (soort = 'duo_cursus' and tweede_persoon_id is not null)
+    or (soort = 'priveles' and tweede_persoon_id is null)
+  )
 );
 
 alter table public.beschikbaarheid enable row level security;
@@ -129,19 +189,21 @@ create policy "Cursist ziet eigen beschikbaarheid"
   on public.beschikbaarheid for select
   using (auth.uid() = cursist_id or public.is_beheerder());
 
+-- Een gearchiveerde cursist kan geen beschikbaarheid meer toevoegen.
 create policy "Cursist voegt eigen beschikbaarheid toe"
   on public.beschikbaarheid for insert
-  with check (auth.uid() = cursist_id or public.is_beheerder());
+  with check ((auth.uid() = cursist_id and not public.is_gearchiveerd()) or public.is_beheerder());
 
 -- Een cursist mag alleen nog eigen open beschikbaarheid wijzigen/verwijderen
--- (niet meer zodra er een les op is ingepland). Beheerder blijft alles mogen.
+-- (niet meer zodra er een les op is ingepland, en niet meer zodra gearchiveerd).
+-- Beheerder blijft alles mogen.
 create policy "Cursist wijzigt eigen beschikbaarheid"
   on public.beschikbaarheid for update
-  using ((auth.uid() = cursist_id and status = 'open') or public.is_beheerder());
+  using ((auth.uid() = cursist_id and status = 'open' and not public.is_gearchiveerd()) or public.is_beheerder());
 
 create policy "Cursist verwijdert eigen beschikbaarheid"
   on public.beschikbaarheid for delete
-  using ((auth.uid() = cursist_id and status = 'open') or public.is_beheerder());
+  using ((auth.uid() = cursist_id and status = 'open' and not public.is_gearchiveerd()) or public.is_beheerder());
 
 -- ------------------------------------------------------------
 -- Tabel: labels (redenen voor verzetten/annuleren, uitbreidbaar)
@@ -184,9 +246,15 @@ create table public.lessen (
   label_id uuid references public.labels (id),
   oorspronkelijke_les_id uuid references public.lessen (id),
   beschikbaarheid_id uuid references public.beschikbaarheid (id),
+  soort les_soort not null default 'priveles',
+  tweede_persoon_id uuid references public.tweede_persoon (id),
   aangemaakt_op timestamptz not null default now(),
   -- Een les moet minimaal 2 uur duren.
-  constraint lessen_duur_check check (eindtijd - starttijd >= interval '2 hours')
+  constraint lessen_duur_check check (eindtijd - starttijd >= interval '2 hours'),
+  constraint lessen_duo_check check (
+    (soort = 'duo_cursus' and tweede_persoon_id is not null)
+    or (soort = 'priveles' and tweede_persoon_id is null)
+  )
 );
 
 alter table public.lessen enable row level security;
@@ -217,7 +285,9 @@ create or replace function public.plan_les(
   p_datum date,
   p_starttijd time,
   p_eindtijd time,
-  p_beschikbaarheid_id uuid default null
+  p_beschikbaarheid_id uuid default null,
+  p_soort les_soort default 'priveles',
+  p_tweede_persoon_id uuid default null
 )
 returns public.lessen
 language plpgsql
@@ -233,8 +303,12 @@ begin
     raise exception 'Een les moet minimaal 2 uur duren';
   end if;
 
-  insert into public.lessen (cursist_id, datum, starttijd, eindtijd, status, beschikbaarheid_id)
-  values (p_cursist_id, p_datum, p_starttijd, p_eindtijd, 'gepland', p_beschikbaarheid_id)
+  if p_soort = 'duo_cursus' and p_tweede_persoon_id is null then
+    raise exception 'Bij een duo-cursus is een tweede persoon verplicht';
+  end if;
+
+  insert into public.lessen (cursist_id, datum, starttijd, eindtijd, status, beschikbaarheid_id, soort, tweede_persoon_id)
+  values (p_cursist_id, p_datum, p_starttijd, p_eindtijd, 'gepland', p_beschikbaarheid_id, p_soort, p_tweede_persoon_id)
   returning * into v_les;
 
   if p_beschikbaarheid_id is not null then
@@ -284,8 +358,8 @@ begin
   set status = 'verzet', label_id = p_label_id
   where id = p_les_id;
 
-  insert into public.lessen (cursist_id, datum, starttijd, eindtijd, status, oorspronkelijke_les_id)
-  values (v_oude.cursist_id, p_nieuwe_datum, p_nieuwe_starttijd, p_nieuwe_eindtijd, 'gepland', p_les_id)
+  insert into public.lessen (cursist_id, datum, starttijd, eindtijd, status, oorspronkelijke_les_id, soort, tweede_persoon_id)
+  values (v_oude.cursist_id, p_nieuwe_datum, p_nieuwe_starttijd, p_nieuwe_eindtijd, 'gepland', p_les_id, v_oude.soort, v_oude.tweede_persoon_id)
   returning * into v_nieuwe;
 
   if v_oude.beschikbaarheid_id is not null then

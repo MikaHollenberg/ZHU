@@ -3,9 +3,11 @@ import { supabase } from '../../lib/supabase'
 import { MINIMALE_TIJDVAK_MINUTEN, TIJD_OPTIES, tijdNaarMinuten } from '../../lib/tijd'
 import { getWeekDagen, isoWeekNumber, startOfWeek, toDateKey } from '../../lib/kalender'
 import { STATUS_LABELS } from '../../lib/lesStatus'
-import type { Beschikbaarheid, BeschikbaarheidType } from '../../types/availability'
+import type { Beschikbaarheid, BeschikbaarheidType, LesSoort } from '../../types/availability'
 import type { Label, Les } from '../../types/lesson'
 import type { Profile } from '../../types/profile'
+import { LEEG_TWEEDE_PERSOON } from '../../types/tweedePersoon'
+import type { TweedePersoon, TweedePersoonInvoer } from '../../types/tweedePersoon'
 
 interface LesMetLabel extends Les {
   label: { naam: string } | null
@@ -15,6 +17,11 @@ const BESCHIKBAAR_LABELS: Record<BeschikbaarheidType, string> = {
   hele_dag_beschikbaar: 'Hele dag beschikbaar',
   hele_dag_onbeschikbaar: 'Hele dag onbeschikbaar',
   tijdvak: 'Tijdvak',
+}
+
+const SOORT_LABELS: Record<LesSoort, string> = {
+  priveles: 'Privéles (1 persoon)',
+  duo_cursus: 'Duo-cursus (2 personen)',
 }
 
 const DAG_NAMEN = ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo']
@@ -78,14 +85,95 @@ function LabelSelect({
   )
 }
 
+function TweedePersoonFormulier({
+  waarde,
+  onChange,
+}: {
+  waarde: TweedePersoonInvoer
+  onChange: (veld: keyof TweedePersoonInvoer, waarde: string) => void
+}) {
+  return (
+    <div className="space-y-3 rounded-md bg-slate-50 p-3">
+      <p className="text-sm font-medium text-slate-700">Gegevens tweede persoon</p>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="block">
+          <span className="mb-1 block text-sm text-slate-700">Voornaam *</span>
+          <input
+            required
+            type="text"
+            value={waarde.voornaam}
+            onChange={(e) => onChange('voornaam', e.target.value)}
+            className="input"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-sm text-slate-700">Achternaam *</span>
+          <input
+            required
+            type="text"
+            value={waarde.achternaam}
+            onChange={(e) => onChange('achternaam', e.target.value)}
+            className="input"
+          />
+        </label>
+      </div>
+      <label className="block">
+        <span className="mb-1 block text-sm text-slate-700">E-mailadres *</span>
+        <input
+          required
+          type="email"
+          value={waarde.email}
+          onChange={(e) => onChange('email', e.target.value)}
+          className="input"
+        />
+      </label>
+      <label className="block">
+        <span className="mb-1 block text-sm text-slate-700">Telefoonnummer</span>
+        <input
+          type="tel"
+          value={waarde.telefoonnummer}
+          onChange={(e) => onChange('telefoonnummer', e.target.value)}
+          className="input"
+        />
+      </label>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="block">
+          <span className="mb-1 block text-sm text-slate-700">Geboortedatum *</span>
+          <input
+            required
+            type="date"
+            value={waarde.geboortedatum}
+            onChange={(e) => onChange('geboortedatum', e.target.value)}
+            className="input"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-sm text-slate-700">Geboorteplaats *</span>
+          <input
+            required
+            type="text"
+            value={waarde.geboorteplaats}
+            onChange={(e) => onChange('geboorteplaats', e.target.value)}
+            className="input"
+          />
+        </label>
+      </div>
+    </div>
+  )
+}
+
 function CelPaneel({
   selectie,
   labels,
+  tweedePersonen,
+  tweedePersoonPerBoeker,
   onClose,
   onChanged,
 }: {
   selectie: CelSelectie
   labels: Label[]
+  tweedePersonen: Record<string, TweedePersoon>
+  tweedePersoonPerBoeker: Record<string, TweedePersoon>
   onClose: () => void
   onChanged: () => void
 }) {
@@ -103,6 +191,22 @@ function CelPaneel({
   const [labelId, setLabelId] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const beschikbaarheidDuo = beschikbaarheid?.soort === 'duo_cursus' ? beschikbaarheid : null
+  const opgeslagenPartner = tweedePersoonPerBoeker[cursist.id] ?? null
+  const [planSoort, setPlanSoort] = useState<LesSoort>(beschikbaarheidDuo ? 'duo_cursus' : 'priveles')
+  const [planTweedePersoon, setPlanTweedePersoon] = useState<TweedePersoonInvoer>(
+    opgeslagenPartner
+      ? {
+          voornaam: opgeslagenPartner.voornaam,
+          achternaam: opgeslagenPartner.achternaam,
+          email: opgeslagenPartner.email,
+          telefoonnummer: opgeslagenPartner.telefoonnummer ?? '',
+          geboortedatum: opgeslagenPartner.geboortedatum ?? '',
+          geboorteplaats: opgeslagenPartner.geboorteplaats ?? '',
+        }
+      : LEEG_TWEEDE_PERSOON,
+  )
 
   const eindOpties = TIJD_OPTIES.filter(
     (t) => tijdNaarMinuten(t) - tijdNaarMinuten(start) >= MINIMALE_TIJDVAK_MINUTEN,
@@ -124,13 +228,64 @@ function CelPaneel({
     month: 'long',
   })
 
+  const planTweedePersoonVeldWijzig = (veld: keyof TweedePersoonInvoer, waarde: string) => {
+    setPlanTweedePersoon((prev) => ({ ...prev, [veld]: waarde }))
+  }
+
+  const lesTweedePersoon = les?.tweede_persoon_id ? tweedePersonen[les.tweede_persoon_id] : null
+  const beschikbaarheidTweedePersoon = beschikbaarheidDuo?.tweede_persoon_id
+    ? tweedePersonen[beschikbaarheidDuo.tweede_persoon_id]
+    : null
+
   const handleInplannen = async () => {
     if (tijdNaarMinuten(eind) - tijdNaarMinuten(start) < MINIMALE_TIJDVAK_MINUTEN) {
       setError('Een les moet minimaal 2 uur duren.')
       return
     }
+
+    let tweedePersoonId: string | null = null
+
+    if (beschikbaarheidDuo) {
+      tweedePersoonId = beschikbaarheidDuo.tweede_persoon_id
+    } else if (planSoort === 'duo_cursus') {
+      const { voornaam, achternaam, email, geboortedatum, geboorteplaats } = planTweedePersoon
+      if (!voornaam.trim() || !achternaam.trim() || !email.trim() || !geboortedatum || !geboorteplaats.trim()) {
+        setError('Vul alle gegevens van de tweede persoon in.')
+        return
+      }
+    }
+
     setSubmitting(true)
     setError(null)
+
+    if (!beschikbaarheidDuo && planSoort === 'duo_cursus') {
+      const { data: persoon, error: persoonError } = await supabase
+        .from('tweede_persoon')
+        .upsert(
+          {
+            boeker_id: cursist.id,
+            voornaam: planTweedePersoon.voornaam.trim(),
+            achternaam: planTweedePersoon.achternaam.trim(),
+            email: planTweedePersoon.email.trim(),
+            telefoonnummer: planTweedePersoon.telefoonnummer.trim() || null,
+            geboortedatum: planTweedePersoon.geboortedatum || null,
+            geboorteplaats: planTweedePersoon.geboorteplaats.trim() || null,
+          },
+          { onConflict: 'boeker_id' },
+        )
+        .select()
+        .single()
+
+      if (persoonError) {
+        setSubmitting(false)
+        setError(persoonError.message)
+        return
+      }
+      tweedePersoonId = persoon.id
+    }
+
+    const soort = beschikbaarheidDuo ? 'duo_cursus' : planSoort
+
     const { error: rpcError } = await supabase.rpc('plan_les', {
       p_cursist_id: cursist.id,
       p_datum: datum,
@@ -138,6 +293,8 @@ function CelPaneel({
       p_eindtijd: eind,
       p_beschikbaarheid_id:
         beschikbaarheid && beschikbaarheid.type !== 'hele_dag_onbeschikbaar' ? beschikbaarheid.id : null,
+      p_soort: soort,
+      p_tweede_persoon_id: tweedePersoonId,
     })
     setSubmitting(false)
     if (rpcError) {
@@ -216,8 +373,13 @@ function CelPaneel({
 
         {les && modus === 'bekijken' && (
           <div>
-            <p className="mb-2 text-sm text-slate-600">
+            <p className="mb-1 text-sm text-slate-600">
               {les.starttijd.slice(0, 5)} - {les.eindtijd.slice(0, 5)} ({STATUS_LABELS[les.status]})
+            </p>
+            <p className="mb-2 text-sm text-slate-600">
+              {les.soort === 'duo_cursus'
+                ? `Duo-cursus${lesTweedePersoon ? ` met ${lesTweedePersoon.voornaam} ${lesTweedePersoon.achternaam}` : ''}`
+                : 'Privéles'}
             </p>
             {les.label && <p className="mb-3 text-sm text-slate-500">Reden: {les.label.naam}</p>}
             {les.status === 'gepland' && (
@@ -243,10 +405,48 @@ function CelPaneel({
                   : BESCHIKBAAR_LABELS[beschikbaarheid.type]}
               </p>
             )}
+
             <div className="grid grid-cols-2 gap-4">
               <TijdSelect label="Van" value={start} onChange={handleStartChange} />
               <TijdSelect label="Tot" value={eind} onChange={setEind} opties={eindOpties} />
             </div>
+
+            {beschikbaarheidDuo ? (
+              <p className="rounded-md bg-brand-blue-light/20 px-3 py-2 text-sm text-brand-blue-dark">
+                Duo-cursus, opgegeven met{' '}
+                {beschikbaarheidTweedePersoon
+                  ? `${beschikbaarheidTweedePersoon.voornaam} ${beschikbaarheidTweedePersoon.achternaam}`
+                  : 'een tweede persoon'}
+              </p>
+            ) : (
+              <div className="space-y-3 border-t border-slate-100 pt-3">
+                <div className="space-y-2">
+                  {(Object.keys(SOORT_LABELS) as LesSoort[]).map((optie) => (
+                    <label key={optie} className="flex items-center gap-2 text-sm text-slate-700">
+                      <input
+                        type="radio"
+                        name="plan-soort"
+                        value={optie}
+                        checked={planSoort === optie}
+                        onChange={() => setPlanSoort(optie)}
+                      />
+                      {SOORT_LABELS[optie]}
+                    </label>
+                  ))}
+                </div>
+                {planSoort === 'duo_cursus' && (
+                  <>
+                    {opgeslagenPartner && (
+                      <p className="text-xs text-slate-500">
+                        Vaste duo-partner van deze cursist, onthouden van een eerdere keer. Pas aan indien nodig.
+                      </p>
+                    )}
+                    <TweedePersoonFormulier waarde={planTweedePersoon} onChange={planTweedePersoonVeldWijzig} />
+                  </>
+                )}
+              </div>
+            )}
+
             <button type="button" disabled={submitting} onClick={handleInplannen} className="btn-primary">
               {submitting ? 'Bezig...' : 'Inplannen'}
             </button>
@@ -312,12 +512,21 @@ export function AdminBeschikbaarheid() {
   const [beschikbaarheid, setBeschikbaarheid] = useState<Beschikbaarheid[]>([])
   const [lessen, setLessen] = useState<LesMetLabel[]>([])
   const [labels, setLabels] = useState<Label[]>([])
+  const [tweedePersonen, setTweedePersonen] = useState<Record<string, TweedePersoon>>({})
+  const [tweedePersoonPerBoeker, setTweedePersoonPerBoeker] = useState<Record<string, TweedePersoon>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectie, setSelectie] = useState<CelSelectie | null>(null)
+  const [zoekterm, setZoekterm] = useState('')
 
   const dagen = useMemo(() => getWeekDagen(weekStart), [weekStart])
   const weekNummer = useMemo(() => isoWeekNumber(weekStart), [weekStart])
+
+  const gefilterdeCursisten = useMemo(() => {
+    const term = zoekterm.trim().toLowerCase()
+    if (!term) return cursisten
+    return cursisten.filter((c) => `${c.voornaam} ${c.achternaam}`.toLowerCase().includes(term))
+  }, [cursisten, zoekterm])
 
   const load = async () => {
     setLoading(true)
@@ -326,7 +535,12 @@ export function AdminBeschikbaarheid() {
     const laatste = toDateKey(dagen[6])
 
     const [cursistenRes, beschikbaarheidRes, lessenRes, labelsRes] = await Promise.all([
-      supabase.from('profiles').select('*').eq('rol', 'cursist').order('achternaam', { ascending: true }),
+      supabase
+        .from('profiles')
+        .select('*')
+        .eq('rol', 'cursist')
+        .eq('gearchiveerd', false)
+        .order('achternaam', { ascending: true }),
       supabase.from('beschikbaarheid').select('*').gte('datum', eerste).lte('datum', laatste),
       supabase.from('lessen').select('*, label:labels(naam)').gte('datum', eerste).lte('datum', laatste),
       supabase.from('labels').select('*'),
@@ -337,6 +551,23 @@ export function AdminBeschikbaarheid() {
     setBeschikbaarheid(beschikbaarheidRes.data ?? [])
     setLessen((lessenRes.data ?? []) as unknown as LesMetLabel[])
     setLabels(labelsRes.data ?? [])
+
+    const cursistIds = (cursistenRes.data ?? []).map((c) => c.id)
+    if (cursistIds.length > 0) {
+      const { data: personen } = await supabase.from('tweede_persoon').select('*').in('boeker_id', cursistIds)
+      const byId: Record<string, TweedePersoon> = {}
+      const byBoeker: Record<string, TweedePersoon> = {}
+      for (const p of personen ?? []) {
+        byId[p.id] = p
+        byBoeker[p.boeker_id] = p
+      }
+      setTweedePersonen(byId)
+      setTweedePersoonPerBoeker(byBoeker)
+    } else {
+      setTweedePersonen({})
+      setTweedePersoonPerBoeker({})
+    }
+
     setLoading(false)
   }
 
@@ -373,6 +604,14 @@ export function AdminBeschikbaarheid() {
   return (
     <div>
       <h1 className="mb-6 text-2xl font-semibold text-brand-blue-dark">Rooster</h1>
+
+      <input
+        type="text"
+        value={zoekterm}
+        onChange={(e) => setZoekterm(e.target.value)}
+        placeholder="Zoek op naam van cursist..."
+        className="input mb-4 max-w-sm"
+      />
 
       <div className="mb-4 flex items-center justify-between">
         <button
@@ -415,7 +654,7 @@ export function AdminBeschikbaarheid() {
               </tr>
             </thead>
             <tbody>
-              {cursisten.map((cursist) => (
+              {gefilterdeCursisten.map((cursist) => (
                 <tr key={cursist.id} className="border-t border-slate-100">
                   <td className="sticky left-0 z-10 bg-white px-3 py-2 font-medium text-slate-800">
                     {cursist.voornaam} {cursist.achternaam}
@@ -441,6 +680,7 @@ export function AdminBeschikbaarheid() {
                             }`}
                           >
                             {l.starttijd.slice(0, 5)}-{l.eindtijd.slice(0, 5)}
+                            {l.soort === 'duo_cursus' && <span className="ml-1">(Duo)</span>}
                           </div>
                         ) : b ? (
                           <span
@@ -451,6 +691,7 @@ export function AdminBeschikbaarheid() {
                             {b.type === 'tijdvak'
                               ? `${b.starttijd?.slice(0, 5)}-${b.eindtijd?.slice(0, 5)}`
                               : BESCHIKBAAR_LABELS[b.type]}
+                            {b.soort === 'duo_cursus' && ' (Duo)'}
                           </span>
                         ) : (
                           <span className="text-xs text-slate-300">–</span>
@@ -460,10 +701,10 @@ export function AdminBeschikbaarheid() {
                   })}
                 </tr>
               ))}
-              {cursisten.length === 0 && (
+              {gefilterdeCursisten.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-4 py-6 text-center text-slate-400">
-                    Nog geen cursisten aangemeld.
+                    {cursisten.length === 0 ? 'Nog geen cursisten aangemeld.' : 'Geen cursisten gevonden.'}
                   </td>
                 </tr>
               )}
@@ -476,6 +717,8 @@ export function AdminBeschikbaarheid() {
         <CelPaneel
           selectie={selectie}
           labels={labels}
+          tweedePersonen={tweedePersonen}
+          tweedePersoonPerBoeker={tweedePersoonPerBoeker}
           onClose={() => setSelectie(null)}
           onChanged={async () => {
             await load()

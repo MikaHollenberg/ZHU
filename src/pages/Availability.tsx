@@ -3,7 +3,9 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { MINIMALE_TIJDVAK_MINUTEN, TIJD_OPTIES, tijdNaarMinuten } from '../lib/tijd'
 import { getMaandWeken, toDateKey } from '../lib/kalender'
-import type { Beschikbaarheid, BeschikbaarheidType } from '../types/availability'
+import type { Beschikbaarheid, BeschikbaarheidType, LesSoort } from '../types/availability'
+import { LEEG_TWEEDE_PERSOON } from '../types/tweedePersoon'
+import type { TweedePersoon, TweedePersoonInvoer } from '../types/tweedePersoon'
 
 const TYPE_LABELS: Record<BeschikbaarheidType, string> = {
   hele_dag_beschikbaar: 'Hele dag beschikbaar',
@@ -11,10 +13,15 @@ const TYPE_LABELS: Record<BeschikbaarheidType, string> = {
   tijdvak: 'Specifiek tijdvak',
 }
 
+const SOORT_LABELS: Record<LesSoort, string> = {
+  priveles: 'Privéles (1 persoon)',
+  duo_cursus: 'Duo-cursus (2 personen)',
+}
+
 function samenvatting(entry?: Beschikbaarheid) {
   if (!entry) return '–'
-  if (entry.type === 'tijdvak') return `${entry.starttijd?.slice(0, 5)} - ${entry.eindtijd?.slice(0, 5)}`
-  return TYPE_LABELS[entry.type]
+  const basis = entry.type === 'tijdvak' ? `${entry.starttijd?.slice(0, 5)} - ${entry.eindtijd?.slice(0, 5)}` : TYPE_LABELS[entry.type]
+  return entry.soort === 'duo_cursus' ? `${basis} · Duo-cursus` : basis
 }
 
 function vandaag() {
@@ -30,6 +37,7 @@ export function Availability() {
     return { jaar: n.getFullYear(), maand: n.getMonth() }
   })
   const [itemsByDatum, setItemsByDatum] = useState<Record<string, Beschikbaarheid>>({})
+  const [eigenTweedePersoon, setEigenTweedePersoon] = useState<TweedePersoon | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
@@ -37,7 +45,9 @@ export function Availability() {
   const [editingDatum, setEditingDatum] = useState<string | null>(null)
   const [editType, setEditType] = useState<BeschikbaarheidType>('hele_dag_beschikbaar')
   const [editStart, setEditStart] = useState('17:00')
-  const [editEind, setEditEind] = useState('21:00')
+  const [editEind, setEditEind] = useState('19:00')
+  const [editSoort, setEditSoort] = useState<LesSoort>('priveles')
+  const [editTweedePersoon, setEditTweedePersoon] = useState<TweedePersoonInvoer>(LEEG_TWEEDE_PERSOON)
 
   const today = useMemo(() => vandaag(), [])
   const weken = useMemo(
@@ -63,13 +73,19 @@ export function Availability() {
 
     if (loadError) {
       setError(loadError.message)
-    } else {
-      const map: Record<string, Beschikbaarheid> = {}
-      for (const item of data ?? []) {
-        map[item.datum] = item
-      }
-      setItemsByDatum(map)
+      setLoading(false)
+      return
     }
+
+    const map: Record<string, Beschikbaarheid> = {}
+    for (const item of data ?? []) {
+      map[item.datum] = item
+    }
+    setItemsByDatum(map)
+
+    const { data: persoon } = await supabase.from('tweede_persoon').select('*').eq('boeker_id', user.id).maybeSingle()
+    setEigenTweedePersoon(persoon ?? null)
+
     setLoading(false)
   }
 
@@ -107,6 +123,23 @@ export function Availability() {
     setEditType(entry?.type ?? 'hele_dag_beschikbaar')
     setEditStart(entry?.starttijd?.slice(0, 5) ?? '17:00')
     setEditEind(entry?.eindtijd?.slice(0, 5) ?? '19:00')
+    setEditSoort(entry?.soort ?? 'priveles')
+    setEditTweedePersoon(
+      eigenTweedePersoon
+        ? {
+            voornaam: eigenTweedePersoon.voornaam,
+            achternaam: eigenTweedePersoon.achternaam,
+            email: eigenTweedePersoon.email,
+            telefoonnummer: eigenTweedePersoon.telefoonnummer ?? '',
+            geboortedatum: eigenTweedePersoon.geboortedatum ?? '',
+            geboorteplaats: eigenTweedePersoon.geboorteplaats ?? '',
+          }
+        : LEEG_TWEEDE_PERSOON,
+    )
+  }
+
+  const tweedePersoonVeldWijzig = (veld: keyof TweedePersoonInvoer, waarde: string) => {
+    setEditTweedePersoon((prev) => ({ ...prev, [veld]: waarde }))
   }
 
   const handleSave = async (key: string) => {
@@ -116,8 +149,48 @@ export function Availability() {
       return
     }
 
+    if (editType !== 'hele_dag_onbeschikbaar' && editSoort === 'duo_cursus') {
+      const { voornaam, achternaam, email, geboortedatum, geboorteplaats } = editTweedePersoon
+      if (!voornaam.trim() || !achternaam.trim() || !email.trim() || !geboortedatum || !geboorteplaats.trim()) {
+        setError('Vul alle gegevens van de tweede persoon in.')
+        return
+      }
+    }
+
     setError(null)
     setSubmitting(true)
+
+    let tweedePersoonId: string | null = null
+
+    if (editType !== 'hele_dag_onbeschikbaar' && editSoort === 'duo_cursus') {
+      const { data: persoon, error: persoonError } = await supabase
+        .from('tweede_persoon')
+        .upsert(
+          {
+            boeker_id: user.id,
+            voornaam: editTweedePersoon.voornaam.trim(),
+            achternaam: editTweedePersoon.achternaam.trim(),
+            email: editTweedePersoon.email.trim(),
+            telefoonnummer: editTweedePersoon.telefoonnummer.trim() || null,
+            geboortedatum: editTweedePersoon.geboortedatum || null,
+            geboorteplaats: editTweedePersoon.geboorteplaats.trim() || null,
+          },
+          { onConflict: 'boeker_id' },
+        )
+        .select()
+        .single()
+
+      if (persoonError) {
+        setSubmitting(false)
+        setError(persoonError.message)
+        return
+      }
+      tweedePersoonId = persoon.id
+      setEigenTweedePersoon(persoon)
+    }
+
+    const soort = editType !== 'hele_dag_onbeschikbaar' ? editSoort : 'priveles'
+
     const { error: saveError } = await supabase.from('beschikbaarheid').upsert(
       {
         cursist_id: user.id,
@@ -126,6 +199,8 @@ export function Availability() {
         starttijd: editType === 'tijdvak' ? editStart : null,
         eindtijd: editType === 'tijdvak' ? editEind : null,
         status: 'open',
+        soort,
+        tweede_persoon_id: soort === 'duo_cursus' ? tweedePersoonId : null,
       },
       { onConflict: 'cursist_id,datum' },
     )
@@ -270,6 +345,99 @@ export function Availability() {
                                 ))}
                               </select>
                             </label>
+                          </div>
+                        )}
+
+                        {editType !== 'hele_dag_onbeschikbaar' && (
+                          <div className="space-y-3 border-t border-slate-100 pt-3">
+                            <div className="space-y-2">
+                              {(Object.keys(SOORT_LABELS) as LesSoort[]).map((optie) => (
+                                <label key={optie} className="flex items-center gap-2 text-sm text-slate-700">
+                                  <input
+                                    type="radio"
+                                    name={`soort-${key}`}
+                                    value={optie}
+                                    checked={editSoort === optie}
+                                    onChange={() => setEditSoort(optie)}
+                                  />
+                                  {SOORT_LABELS[optie]}
+                                </label>
+                              ))}
+                            </div>
+
+                            {editSoort === 'duo_cursus' && (
+                              <div className="space-y-3 rounded-md bg-slate-50 p-3">
+                                <p className="text-sm font-medium text-slate-700">Gegevens tweede persoon</p>
+                                {eigenTweedePersoon && (
+                                  <p className="text-xs text-slate-500">
+                                    Onthouden van je vaste duo-partner. Pas aan indien nodig.
+                                  </p>
+                                )}
+                                <div className="grid grid-cols-2 gap-3">
+                                  <label className="block">
+                                    <span className="mb-1 block text-sm text-slate-700">Voornaam *</span>
+                                    <input
+                                      required
+                                      type="text"
+                                      value={editTweedePersoon.voornaam}
+                                      onChange={(e) => tweedePersoonVeldWijzig('voornaam', e.target.value)}
+                                      className="input"
+                                    />
+                                  </label>
+                                  <label className="block">
+                                    <span className="mb-1 block text-sm text-slate-700">Achternaam *</span>
+                                    <input
+                                      required
+                                      type="text"
+                                      value={editTweedePersoon.achternaam}
+                                      onChange={(e) => tweedePersoonVeldWijzig('achternaam', e.target.value)}
+                                      className="input"
+                                    />
+                                  </label>
+                                </div>
+                                <label className="block">
+                                  <span className="mb-1 block text-sm text-slate-700">E-mailadres *</span>
+                                  <input
+                                    required
+                                    type="email"
+                                    value={editTweedePersoon.email}
+                                    onChange={(e) => tweedePersoonVeldWijzig('email', e.target.value)}
+                                    className="input"
+                                  />
+                                </label>
+                                <label className="block">
+                                  <span className="mb-1 block text-sm text-slate-700">Telefoonnummer</span>
+                                  <input
+                                    type="tel"
+                                    value={editTweedePersoon.telefoonnummer}
+                                    onChange={(e) => tweedePersoonVeldWijzig('telefoonnummer', e.target.value)}
+                                    className="input"
+                                  />
+                                </label>
+                                <div className="grid grid-cols-2 gap-3">
+                                  <label className="block">
+                                    <span className="mb-1 block text-sm text-slate-700">Geboortedatum *</span>
+                                    <input
+                                      required
+                                      type="date"
+                                      value={editTweedePersoon.geboortedatum}
+                                      onChange={(e) => tweedePersoonVeldWijzig('geboortedatum', e.target.value)}
+                                      className="input"
+                                    />
+                                  </label>
+                                  <label className="block">
+                                    <span className="mb-1 block text-sm text-slate-700">Geboorteplaats *</span>
+                                    <input
+                                      required
+                                      type="text"
+                                      value={editTweedePersoon.geboorteplaats}
+                                      onChange={(e) => tweedePersoonVeldWijzig('geboorteplaats', e.target.value)}
+                                      className="input"
+                                    />
+                                  </label>
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
 

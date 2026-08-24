@@ -6,6 +6,7 @@ import type { Les } from '../types/lesson'
 
 interface LesMetLabel extends Les {
   label: { naam: string } | null
+  tweede_persoon: { voornaam: string; achternaam: string } | null
 }
 
 function formatDatum(datum: string) {
@@ -24,6 +25,11 @@ function LesItem({ les }: { les: LesMetLabel }) {
           <p className="font-medium capitalize text-slate-800">{formatDatum(les.datum)}</p>
           <p className="text-sm text-slate-500">
             {les.starttijd.slice(0, 5)} - {les.eindtijd.slice(0, 5)}
+          </p>
+          <p className="text-sm text-slate-500">
+            {les.soort === 'duo_cursus'
+              ? `Duo-cursus${les.tweede_persoon ? ` met ${les.tweede_persoon.voornaam} ${les.tweede_persoon.achternaam}` : ''}`
+              : 'Privéles'}
           </p>
         </div>
         <span className={`rounded-full px-2 py-1 text-xs font-medium ${STATUS_STYLES[les.status]}`}>
@@ -47,7 +53,7 @@ export function MyLessons() {
     if (!user) return
     supabase
       .from('lessen')
-      .select('*, label:labels(naam)')
+      .select('*, label:labels(naam), tweede_persoon:tweede_persoon(voornaam, achternaam)')
       .eq('cursist_id', user.id)
       .order('datum', { ascending: true })
       .then(({ data }) => {
