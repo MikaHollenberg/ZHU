@@ -182,7 +182,17 @@ export function AdminCursisten() {
 
   const wijzigRol = async (profile: Profile, nieuweRol: UserRole) => {
     setSubmitting(profile.id)
-    await supabase.from('profiles').update({ rol: nieuweRol }).eq('id', profile.id)
+    await supabase
+      .from('profiles')
+      .update({ rol: nieuweRol, ...(nieuweRol === 'instructeur' ? { instructeur_goedgekeurd: false } : {}) })
+      .eq('id', profile.id)
+    setSubmitting(null)
+    await load()
+  }
+
+  const wijzigGoedkeuring = async (profile: Profile, goedgekeurd: boolean) => {
+    setSubmitting(profile.id)
+    await supabase.from('profiles').update({ instructeur_goedgekeurd: goedgekeurd }).eq('id', profile.id)
     setSubmitting(null)
     await load()
   }
@@ -264,6 +274,7 @@ export function AdminCursisten() {
                     <th className="px-4 py-2">Duo-partner</th>
                   </>
                 )}
+                {rolFilter === 'instructeur' && <th className="px-4 py-2">Goedkeuring</th>}
                 <th className="px-4 py-2">Rol</th>
                 <th className="px-4 py-2">Actie</th>
               </tr>
@@ -315,6 +326,29 @@ export function AdminCursisten() {
                         </td>
                       </>
                     )}
+                    {rolFilter === 'instructeur' && (
+                      <td className="px-4 py-2">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={
+                              p.instructeur_goedgekeurd
+                                ? 'rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700'
+                                : 'rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-700'
+                            }
+                          >
+                            {p.instructeur_goedgekeurd ? 'Goedgekeurd' : 'Wacht op goedkeuring'}
+                          </span>
+                          <button
+                            type="button"
+                            disabled={submitting === p.id}
+                            onClick={() => wijzigGoedkeuring(p, !p.instructeur_goedgekeurd)}
+                            className="text-xs font-medium text-brand-blue hover:underline disabled:opacity-50"
+                          >
+                            {p.instructeur_goedgekeurd ? 'Intrekken' : 'Goedkeuren'}
+                          </button>
+                        </div>
+                      </td>
+                    )}
                     <td className="px-4 py-2">
                       <button
                         type="button"
@@ -344,7 +378,7 @@ export function AdminCursisten() {
               })}
               {gefilterd.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-6 text-center text-slate-400">
+                  <td colSpan={rolFilter === 'cursist' ? 9 : 8} className="px-4 py-6 text-center text-slate-400">
                     {toonGearchiveerd
                       ? 'Niets gearchiveerd gevonden.'
                       : rolFilter === 'cursist'

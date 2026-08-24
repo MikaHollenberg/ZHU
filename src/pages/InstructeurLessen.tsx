@@ -19,7 +19,8 @@ function formatDatum(datum: string) {
 }
 
 export function InstructeurLessen() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
+  const goedgekeurd = profile?.instructeur_goedgekeurd ?? false
   const [openstaand, setOpenstaand] = useState<Les[]>([])
   const [eigen, setEigen] = useState<Les[]>([])
   const [cursistNamen, setCursistNamen] = useState<Record<string, CursistNaam>>({})
@@ -106,6 +107,12 @@ export function InstructeurLessen() {
     <div className="mx-auto max-w-2xl">
       <h1 className="mb-6 text-2xl font-semibold text-brand-blue-dark">Lesgeven</h1>
 
+      {!goedgekeurd && (
+        <p className="mb-4 rounded-md bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Je account moet nog door de beheerder worden goedgekeurd voordat je een les kunt claimen.
+        </p>
+      )}
+
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
       {loading ? (
@@ -165,9 +172,9 @@ export function InstructeurLessen() {
                   </div>
                   <button
                     type="button"
-                    disabled={submitting === les.id}
+                    disabled={submitting === les.id || !goedgekeurd}
                     onClick={() => handleAanmelden(les.id)}
-                    className="btn-primary"
+                    className="btn-primary disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {submitting === les.id ? 'Bezig...' : 'Aanmelden'}
                   </button>

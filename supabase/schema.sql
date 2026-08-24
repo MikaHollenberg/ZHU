@@ -29,6 +29,8 @@ create table public.profiles (
   geboorteplaats text,
   rol user_role not null default 'cursist',
   gearchiveerd boolean not null default false,
+  standaard_discipline discipline,
+  instructeur_goedgekeurd boolean not null default false,
   aangemaakt_op timestamptz not null default now()
 );
 
@@ -83,7 +85,8 @@ create policy "Cursist bewerkt eigen profiel"
   on public.profiles for update
   using ((auth.uid() = id and not public.is_gearchiveerd()) or public.is_beheerder());
 
--- Voorkom dat een cursist zichzelf tot beheerder promoveert via de update-policy hierboven.
+-- Voorkom dat een cursist zichzelf tot beheerder promoveert, of zichzelf als
+-- instructeur goedkeurt, via de update-policy hierboven.
 create or replace function public.prevent_role_escalation()
 returns trigger
 language plpgsql
@@ -92,9 +95,14 @@ set search_path = public
 as $$
 begin
   -- auth.uid() is NULL wanneer dit via de SQL Editor / service role draait
-  -- (geen ingelogde gebruiker) — alleen dan mag de rol vrij wijzigen.
-  if new.rol <> old.rol and auth.uid() is not null and not public.is_beheerder() then
-    new.rol := old.rol;
+  -- (geen ingelogde gebruiker) — alleen dan mag dit vrij wijzigen.
+  if auth.uid() is not null and not public.is_beheerder() then
+    if new.rol <> old.rol then
+      new.rol := old.rol;
+    end if;
+    if new.instructeur_goedgekeurd <> old.instructeur_goedgekeurd then
+      new.instructeur_goedgekeurd := old.instructeur_goedgekeurd;
+    end if;
   end if;
   return new;
 end;
@@ -312,9 +320,15 @@ set search_path = public
 as $$
 declare
   v_les public.lessen;
+  v_goedgekeurd boolean;
 begin
   if not public.is_instructeur() then
     raise exception 'Alleen instructeurs kunnen zich aanmelden voor een les';
+  end if;
+
+  select instructeur_goedgekeurd into v_goedgekeurd from public.profiles where id = auth.uid();
+  if not coalesce(v_goedgekeurd, false) then
+    raise exception 'Je account moet eerst door de beheerder worden goedgekeurd voordat je een les kunt claimen';
   end if;
 
   select * into v_les from public.lessen where id = p_les_id;

@@ -34,7 +34,7 @@ function vandaag() {
 }
 
 export function Availability() {
-  const { user, profile } = useAuth()
+  const { user, profile, refreshProfile } = useAuth()
   const isInstructeur = profile?.rol === 'instructeur'
   const [maand, setMaand] = useState(() => {
     const n = new Date()
@@ -45,6 +45,8 @@ export function Availability() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [standaardDiscipline, setStandaardDiscipline] = useState<Discipline>('polyvalk')
+  const [disciplineOpslaan, setDisciplineOpslaan] = useState(false)
 
   const [editingDatum, setEditingDatum] = useState<string | null>(null)
   const [editType, setEditType] = useState<BeschikbaarheidType>('hele_dag_beschikbaar')
@@ -99,6 +101,19 @@ export function Availability() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, maand.jaar, maand.maand])
 
+  useEffect(() => {
+    setStandaardDiscipline(profile?.standaard_discipline ?? 'polyvalk')
+  }, [profile?.standaard_discipline])
+
+  const handleStandaardDisciplineChange = async (waarde: Discipline) => {
+    if (!user) return
+    setStandaardDiscipline(waarde)
+    setDisciplineOpslaan(true)
+    await supabase.from('profiles').update({ standaard_discipline: waarde }).eq('id', user.id)
+    await refreshProfile()
+    setDisciplineOpslaan(false)
+  }
+
   const shiftMaand = (delta: number) => {
     setEditingDatum(null)
     setMaand((prev) => {
@@ -129,7 +144,7 @@ export function Availability() {
     setEditStart(entry?.starttijd?.slice(0, 5) ?? '17:00')
     setEditEind(entry?.eindtijd?.slice(0, 5) ?? '19:00')
     setEditSoort(entry?.soort ?? 'priveles')
-    setEditDiscipline(entry?.discipline ?? 'polyvalk')
+    setEditDiscipline(entry?.discipline ?? standaardDiscipline)
     setEditTweedePersoon(
       eigenTweedePersoon
         ? {
@@ -260,6 +275,28 @@ export function Availability() {
         </button>
       </div>
 
+      {!isInstructeur && (
+        <div className="mb-5 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-slate-700">Jouw discipline</span>
+            <select
+              value={standaardDiscipline}
+              onChange={(e) => handleStandaardDisciplineChange(e.target.value as Discipline)}
+              className="input"
+            >
+              {DISCIPLINES.map((d) => (
+                <option key={d} value={d}>
+                  {DISCIPLINE_LABELS[d]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="mt-1 text-xs text-slate-500">
+            {disciplineOpslaan ? 'Bezig met opslaan...' : 'Wordt onthouden en automatisch gebruikt bij het doorgeven van beschikbaarheid.'}
+          </p>
+        </div>
+      )}
+
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
       {loading ? (
@@ -362,21 +399,6 @@ export function Availability() {
 
                         {!isInstructeur && editType !== 'hele_dag_onbeschikbaar' && (
                           <div className="space-y-3 border-t border-slate-100 pt-3">
-                            <label className="block">
-                              <span className="mb-1 block text-sm font-medium text-slate-700">Discipline</span>
-                              <select
-                                value={editDiscipline}
-                                onChange={(e) => setEditDiscipline(e.target.value as Discipline)}
-                                className="input"
-                              >
-                                {DISCIPLINES.map((d) => (
-                                  <option key={d} value={d}>
-                                    {DISCIPLINE_LABELS[d]}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-
                             <div className="space-y-2">
                               {(Object.keys(SOORT_LABELS) as LesSoort[]).map((optie) => (
                                 <label key={optie} className="flex items-center gap-2 text-sm text-slate-700">

@@ -1,3 +1,5 @@
+import type { Discipline } from '../lib/disciplines'
+
 export type UserRole = 'cursist' | 'beheerder' | 'instructeur'
 
 export interface Profile {
@@ -10,5 +12,7 @@ export interface Profile {
   geboorteplaats: string | null
   rol: UserRole
   gearchiveerd: boolean
+  standaard_discipline: Discipline | null
+  instructeur_goedgekeurd: boolean
   aangemaakt_op: string
 }
