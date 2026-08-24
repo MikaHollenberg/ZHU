@@ -7,12 +7,13 @@
 -- ------------------------------------------------------------
 -- Types
 -- ------------------------------------------------------------
-create type user_role as enum ('cursist', 'beheerder');
+create type user_role as enum ('cursist', 'beheerder', 'instructeur');
 create type beschikbaarheid_type as enum ('hele_dag_beschikbaar', 'hele_dag_onbeschikbaar', 'tijdvak');
 create type beschikbaarheid_status as enum ('open', 'ingepland');
 create type les_status as enum ('gepland', 'verzet', 'geannuleerd');
 create type label_type as enum ('verzetten', 'annuleren', 'beide');
 create type les_soort as enum ('priveles', 'duo_cursus');
+create type discipline as enum ('polyvalk', 'fox22', 'windsurf');
 
 -- ------------------------------------------------------------
 -- Tabel: profiles (cursisten + beheerder)
@@ -62,6 +63,19 @@ set search_path = public
 stable
 as $$
   select coalesce((select gearchiveerd from public.profiles where id = auth.uid()), false);
+$$;
+
+-- Helperfunctie: check of de ingelogde gebruiker instructeur is.
+create or replace function public.is_instructeur()
+returns boolean
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select exists (
+    select 1 from public.profiles where id = auth.uid() and rol = 'instructeur'
+  );
 $$;
 
 -- Een gearchiveerde cursist kan zijn eigen profiel niet meer bewerken.
@@ -170,6 +184,7 @@ create table public.beschikbaarheid (
   status beschikbaarheid_status not null default 'open',
   soort les_soort not null default 'priveles',
   tweede_persoon_id uuid references public.tweede_persoon (id),
+  discipline discipline not null default 'polyvalk',
   aangemaakt_op timestamptz not null default now(),
   -- Een tijdvak moet minimaal 2 uur duren.
   constraint tijdvak_tijden_check check (
@@ -248,6 +263,8 @@ create table public.lessen (
   beschikbaarheid_id uuid references public.beschikbaarheid (id),
   soort les_soort not null default 'priveles',
   tweede_persoon_id uuid references public.tweede_persoon (id),
+  instructeur_id uuid references public.profiles (id),
+  discipline discipline not null default 'polyvalk',
   aangemaakt_op timestamptz not null default now(),
   -- Een les moet minimaal 2 uur duren.
   constraint lessen_duur_check check (eindtijd - starttijd >= interval '2 hours'),
@@ -275,6 +292,90 @@ create policy "Beheerder verwijdert lessen"
   on public.lessen for delete
   using (public.is_beheerder());
 
+-- Instructeur ziet lessen die aan hem gekoppeld zijn, of nog openstaan
+-- om zich voor aan te melden.
+create policy "Instructeur ziet relevante lessen"
+  on public.lessen for select
+  using (
+    instructeur_id = auth.uid()
+    or (instructeur_id is null and status = 'gepland' and public.is_instructeur())
+  );
+
+-- ------------------------------------------------------------
+-- Functie: instructeur meldt zich aan/af voor een les
+-- ------------------------------------------------------------
+create or replace function public.meld_aan_als_instructeur(p_les_id uuid)
+returns public.lessen
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_les public.lessen;
+begin
+  if not public.is_instructeur() then
+    raise exception 'Alleen instructeurs kunnen zich aanmelden voor een les';
+  end if;
+
+  select * into v_les from public.lessen where id = p_les_id;
+  if not found then
+    raise exception 'Les niet gevonden';
+  end if;
+  if v_les.instructeur_id is not null then
+    raise exception 'Deze les heeft al een instructeur';
+  end if;
+  if v_les.status <> 'gepland' then
+    raise exception 'Deze les staat niet meer open';
+  end if;
+
+  update public.lessen set instructeur_id = auth.uid() where id = p_les_id
+  returning * into v_les;
+
+  return v_les;
+end;
+$$;
+
+create or replace function public.meld_af_als_instructeur(p_les_id uuid)
+returns public.lessen
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_les public.lessen;
+begin
+  if not public.is_instructeur() then
+    raise exception 'Alleen instructeurs kunnen zich afmelden';
+  end if;
+
+  update public.lessen
+  set instructeur_id = null
+  where id = p_les_id and instructeur_id = auth.uid()
+  returning * into v_les;
+
+  if not found then
+    raise exception 'Je bent niet gekoppeld aan deze les';
+  end if;
+
+  return v_les;
+end;
+$$;
+
+-- Privacybeperkte naamgegevens: een instructeur mag alleen de naam
+-- zien van cursisten waar hij daadwerkelijk een les mee geeft.
+create or replace function public.lesgever_mijn_cursisten()
+returns table(cursist_id uuid, voornaam text, achternaam text)
+language sql
+security definer
+set search_path = public
+stable
+as $$
+  select distinct p.id, p.voornaam, p.achternaam
+  from public.profiles p
+  join public.lessen l on l.cursist_id = p.id
+  where l.instructeur_id = auth.uid();
+$$;
+
 -- ------------------------------------------------------------
 -- Functie: les inplannen (beheerder)
 -- Maakt de les aan en zet de gekoppelde beschikbaarheid in dezelfde
@@ -287,7 +388,8 @@ create or replace function public.plan_les(
   p_eindtijd time,
   p_beschikbaarheid_id uuid default null,
   p_soort les_soort default 'priveles',
-  p_tweede_persoon_id uuid default null
+  p_tweede_persoon_id uuid default null,
+  p_discipline discipline default 'polyvalk'
 )
 returns public.lessen
 language plpgsql
@@ -307,8 +409,14 @@ begin
     raise exception 'Bij een duo-cursus is een tweede persoon verplicht';
   end if;
 
-  insert into public.lessen (cursist_id, datum, starttijd, eindtijd, status, beschikbaarheid_id, soort, tweede_persoon_id)
-  values (p_cursist_id, p_datum, p_starttijd, p_eindtijd, 'gepland', p_beschikbaarheid_id, p_soort, p_tweede_persoon_id)
+  insert into public.lessen (
+    cursist_id, datum, starttijd, eindtijd, status, beschikbaarheid_id,
+    soort, tweede_persoon_id, discipline
+  )
+  values (
+    p_cursist_id, p_datum, p_starttijd, p_eindtijd, 'gepland', p_beschikbaarheid_id,
+    p_soort, p_tweede_persoon_id, p_discipline
+  )
   returning * into v_les;
 
   if p_beschikbaarheid_id is not null then
@@ -358,8 +466,14 @@ begin
   set status = 'verzet', label_id = p_label_id
   where id = p_les_id;
 
-  insert into public.lessen (cursist_id, datum, starttijd, eindtijd, status, oorspronkelijke_les_id, soort, tweede_persoon_id)
-  values (v_oude.cursist_id, p_nieuwe_datum, p_nieuwe_starttijd, p_nieuwe_eindtijd, 'gepland', p_les_id, v_oude.soort, v_oude.tweede_persoon_id)
+  insert into public.lessen (
+    cursist_id, datum, starttijd, eindtijd, status, oorspronkelijke_les_id,
+    soort, tweede_persoon_id, instructeur_id, discipline
+  )
+  values (
+    v_oude.cursist_id, p_nieuwe_datum, p_nieuwe_starttijd, p_nieuwe_eindtijd, 'gepland', p_les_id,
+    v_oude.soort, v_oude.tweede_persoon_id, v_oude.instructeur_id, v_oude.discipline
+  )
   returning * into v_nieuwe;
 
   if v_oude.beschikbaarheid_id is not null then

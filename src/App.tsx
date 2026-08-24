@@ -12,6 +12,7 @@ import { MyLessons } from './pages/MyLessons'
 import { AdminCursisten } from './pages/admin/Cursisten'
 import { AdminBeschikbaarheid } from './pages/admin/BeschikbaarheidOverzicht'
 import { AdminLabels } from './pages/admin/Labels'
+import { InstructeurLessen } from './pages/InstructeurLessen'
 
 function App() {
   return (
@@ -50,6 +51,16 @@ function App() {
               element={
                 <ProtectedRoute>
                   <MyLessons />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/lesgeven"
+              element={
+                <ProtectedRoute>
+                  <RequireRole role="instructeur">
+                    <InstructeurLessen />
+                  </RequireRole>
                 </ProtectedRoute>
               }
             />

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import type { LesSoort } from '../../types/availability'
-import type { Profile } from '../../types/profile'
+import type { Profile, UserRole } from '../../types/profile'
 import type { TweedePersoon } from '../../types/tweedePersoon'
 
 type Sortering = 'nieuwste' | 'naam'
+type RolFilter = 'cursist' | 'instructeur'
 
 const SOORT_LABELS: Record<LesSoort, string> = {
   priveles: 'Privéles',
@@ -104,41 +105,44 @@ export function AdminCursisten() {
   const [loading, setLoading] = useState(true)
   const [zoekterm, setZoekterm] = useState('')
   const [sortering, setSortering] = useState<Sortering>('nieuwste')
+  const [rolFilter, setRolFilter] = useState<RolFilter>('cursist')
   const [toonGearchiveerd, setToonGearchiveerd] = useState(false)
   const [submitting, setSubmitting] = useState<string | null>(null)
   const [bekekenPartnerVoor, setBekekenPartnerVoor] = useState<Profile | null>(null)
 
   const load = async () => {
     setLoading(true)
-    const { data } = await supabase.from('profiles').select('*').eq('rol', 'cursist')
+    const { data } = await supabase.from('profiles').select('*').eq('rol', rolFilter)
     setProfiles(data ?? [])
 
-    const vandaag = new Date().toISOString().slice(0, 10)
-    const { data: lessenData } = await supabase
-      .from('lessen')
-      .select('cursist_id, datum, soort')
-      .eq('status', 'gepland')
-      .gte('datum', vandaag)
-      .order('datum', { ascending: true })
+    if (rolFilter === 'cursist') {
+      const vandaag = new Date().toISOString().slice(0, 10)
+      const { data: lessenData } = await supabase
+        .from('lessen')
+        .select('cursist_id, datum, soort')
+        .eq('status', 'gepland')
+        .gte('datum', vandaag)
+        .order('datum', { ascending: true })
 
-    const map: Record<string, LesSoort> = {}
-    for (const les of lessenData ?? []) {
-      if (!(les.cursist_id in map)) {
-        map[les.cursist_id] = les.soort
+      const map: Record<string, LesSoort> = {}
+      for (const les of lessenData ?? []) {
+        if (!(les.cursist_id in map)) {
+          map[les.cursist_id] = les.soort
+        }
       }
-    }
-    setEerstvolgendeSoort(map)
+      setEerstvolgendeSoort(map)
 
-    const cursistIds = (data ?? []).map((p) => p.id)
-    if (cursistIds.length > 0) {
-      const { data: personen } = await supabase.from('tweede_persoon').select('*').in('boeker_id', cursistIds)
-      const byBoeker: Record<string, TweedePersoon> = {}
-      for (const p of personen ?? []) {
-        byBoeker[p.boeker_id] = p
+      const cursistIds = (data ?? []).map((p) => p.id)
+      if (cursistIds.length > 0) {
+        const { data: personen } = await supabase.from('tweede_persoon').select('*').in('boeker_id', cursistIds)
+        const byBoeker: Record<string, TweedePersoon> = {}
+        for (const p of personen ?? []) {
+          byBoeker[p.boeker_id] = p
+        }
+        setTweedePersoonPerBoeker(byBoeker)
+      } else {
+        setTweedePersoonPerBoeker({})
       }
-      setTweedePersoonPerBoeker(byBoeker)
-    } else {
-      setTweedePersoonPerBoeker({})
     }
 
     setLoading(false)
@@ -146,7 +150,8 @@ export function AdminCursisten() {
 
   useEffect(() => {
     load()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rolFilter])
 
   const gefilterd = useMemo(() => {
     const term = zoekterm.trim().toLowerCase()
@@ -175,11 +180,35 @@ export function AdminCursisten() {
     await load()
   }
 
+  const wijzigRol = async (profile: Profile, nieuweRol: UserRole) => {
+    setSubmitting(profile.id)
+    await supabase.from('profiles').update({ rol: nieuweRol }).eq('id', profile.id)
+    setSubmitting(null)
+    await load()
+  }
+
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-semibold text-brand-blue-dark">Cursisten</h1>
+      <h1 className="mb-6 text-2xl font-semibold text-brand-blue-dark">Cursisten &amp; instructeurs</h1>
 
       <div className="mb-4 flex flex-wrap items-end gap-3">
+        <div className="flex overflow-hidden rounded-md border border-slate-300">
+          <button
+            type="button"
+            onClick={() => setRolFilter('cursist')}
+            className={`px-3 py-2 text-sm ${rolFilter === 'cursist' ? 'bg-brand-blue text-white' : 'bg-white text-slate-600'}`}
+          >
+            Cursisten
+          </button>
+          <button
+            type="button"
+            onClick={() => setRolFilter('instructeur')}
+            className={`px-3 py-2 text-sm ${rolFilter === 'instructeur' ? 'bg-brand-blue text-white' : 'bg-white text-slate-600'}`}
+          >
+            Instructeurs
+          </button>
+        </div>
+
         <input
           type="text"
           value={zoekterm}
@@ -229,8 +258,13 @@ export function AdminCursisten() {
                 <th className="px-4 py-2">Geboortedatum</th>
                 <th className="px-4 py-2">Geboorteplaats</th>
                 <th className="px-4 py-2">Aangemeld op</th>
-                <th className="px-4 py-2">Prive of Duo</th>
-                <th className="px-4 py-2">Duo-partner</th>
+                {rolFilter === 'cursist' && (
+                  <>
+                    <th className="px-4 py-2">Prive of Duo</th>
+                    <th className="px-4 py-2">Duo-partner</th>
+                  </>
+                )}
+                <th className="px-4 py-2">Rol</th>
                 <th className="px-4 py-2">Actie</th>
               </tr>
             </thead>
@@ -248,34 +282,48 @@ export function AdminCursisten() {
                     <td className="px-4 py-2">{p.geboortedatum ?? '-'}</td>
                     <td className="px-4 py-2">{p.geboorteplaats ?? '-'}</td>
                     <td className="px-4 py-2">{new Date(p.aangemaakt_op).toLocaleDateString('nl-NL')}</td>
+                    {rolFilter === 'cursist' && (
+                      <>
+                        <td className="px-4 py-2">
+                          {soort ? (
+                            <span
+                              className={
+                                soort === 'duo_cursus'
+                                  ? 'rounded-full bg-brand-yellow/40 px-2 py-1 text-xs font-medium text-brand-blue-dark'
+                                  : 'rounded-full bg-brand-blue-light/40 px-2 py-1 text-xs font-medium text-brand-blue-dark'
+                              }
+                            >
+                              {SOORT_LABELS[soort]}
+                            </span>
+                          ) : (
+                            <span className="text-slate-300">-</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2">
+                          {partner ? (
+                            <button
+                              type="button"
+                              onClick={() => setBekekenPartnerVoor(p)}
+                              className="inline-flex items-center gap-1.5 rounded-full bg-brand-yellow/40 px-2 py-1 text-xs font-medium text-brand-blue-dark hover:bg-brand-yellow/60"
+                            >
+                              <span className="h-2 w-2 rounded-full bg-brand-yellow-dark" />
+                              {partner.voornaam} {partner.achternaam}
+                            </button>
+                          ) : (
+                            <span className="text-slate-300">-</span>
+                          )}
+                        </td>
+                      </>
+                    )}
                     <td className="px-4 py-2">
-                      {soort ? (
-                        <span
-                          className={
-                            soort === 'duo_cursus'
-                              ? 'rounded-full bg-brand-yellow/40 px-2 py-1 text-xs font-medium text-brand-blue-dark'
-                              : 'rounded-full bg-brand-blue-light/40 px-2 py-1 text-xs font-medium text-brand-blue-dark'
-                          }
-                        >
-                          {SOORT_LABELS[soort]}
-                        </span>
-                      ) : (
-                        <span className="text-slate-300">-</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2">
-                      {partner ? (
-                        <button
-                          type="button"
-                          onClick={() => setBekekenPartnerVoor(p)}
-                          className="inline-flex items-center gap-1.5 rounded-full bg-brand-yellow/40 px-2 py-1 text-xs font-medium text-brand-blue-dark hover:bg-brand-yellow/60"
-                        >
-                          <span className="h-2 w-2 rounded-full bg-brand-yellow-dark" />
-                          {partner.voornaam} {partner.achternaam}
-                        </button>
-                      ) : (
-                        <span className="text-slate-300">-</span>
-                      )}
+                      <button
+                        type="button"
+                        disabled={submitting === p.id}
+                        onClick={() => wijzigRol(p, rolFilter === 'cursist' ? 'instructeur' : 'cursist')}
+                        className="rounded-md border border-brand-blue px-3 py-1.5 text-sm font-medium text-brand-blue hover:bg-brand-blue-light/20 disabled:opacity-50"
+                      >
+                        {rolFilter === 'cursist' ? 'Maak instructeur' : 'Maak cursist'}
+                      </button>
                     </td>
                     <td className="px-4 py-2">
                       <button
@@ -297,7 +345,11 @@ export function AdminCursisten() {
               {gefilterd.length === 0 && (
                 <tr>
                   <td colSpan={9} className="px-4 py-6 text-center text-slate-400">
-                    {toonGearchiveerd ? 'Geen gearchiveerde cursisten.' : 'Geen cursisten gevonden.'}
+                    {toonGearchiveerd
+                      ? 'Niets gearchiveerd gevonden.'
+                      : rolFilter === 'cursist'
+                        ? 'Geen cursisten gevonden.'
+                        : 'Geen instructeurs gevonden.'}
                   </td>
                 </tr>
               )}

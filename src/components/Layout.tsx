@@ -31,6 +31,15 @@ export function Layout({ children }: { children: ReactNode }) {
             Labels
           </Link>
         </>
+      ) : profile?.rol === 'instructeur' ? (
+        <>
+          <Link to="/beschikbaarheid" className={navLinkClass} onClick={() => setMenuOpen(false)}>
+            Beschikbaarheid
+          </Link>
+          <Link to="/lesgeven" className={navLinkClass} onClick={() => setMenuOpen(false)}>
+            Lesgeven
+          </Link>
+        </>
       ) : (
         <>
           <Link to="/beschikbaarheid" className={navLinkClass} onClick={() => setMenuOpen(false)}>

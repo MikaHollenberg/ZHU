@@ -6,6 +6,11 @@
   --color-brand-blue-light: #9ed3ee;
   --color-brand-yellow: #f6cf73;
   --color-brand-yellow-dark: #e8b94f;
+
+  /* Disciplines (boottypes) — centrale kleurcodering, overal hetzelfde. */
+  --color-discipline-polyvalk: #1e3a8a;
+  --color-discipline-fox22: #7dd3fc;
+  --color-discipline-windsurf: #db2777;
 }
 
 :root {

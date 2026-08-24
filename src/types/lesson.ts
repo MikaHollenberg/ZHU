@@ -1,4 +1,5 @@
 import type { LesSoort } from './availability'
+import type { Discipline } from '../lib/disciplines'
 
 export type LesStatus = 'gepland' | 'verzet' | 'geannuleerd'
 export type { LesSoort }
@@ -15,6 +16,8 @@ export interface Les {
   beschikbaarheid_id: string | null
   soort: LesSoort
   tweede_persoon_id: string | null
+  instructeur_id: string | null
+  discipline: Discipline
   aangemaakt_op: string
 }
 

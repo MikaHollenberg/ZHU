@@ -55,6 +55,18 @@ export function Home() {
             </Link>
           </div>
         </div>
+      ) : profile?.rol === 'instructeur' ? (
+        <div>
+          <p className="mb-4 text-slate-600">Je bent ingelogd als instructeur.</p>
+          <div className="flex gap-3">
+            <Link to="/lesgeven" className="btn-primary">
+              Lesgeven
+            </Link>
+            <Link to="/beschikbaarheid" className="btn-accent">
+              Beschikbaarheid doorgeven
+            </Link>
+          </div>
+        </div>
       ) : (
         <div>
           <h2 className="mb-3 text-lg font-semibold text-slate-800">Toekomstige lessen</h2>

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { STATUS_LABELS, STATUS_STYLES } from '../lib/lesStatus'
+import { DisciplineBadge } from '../components/DisciplineBadge'
 import type { Les } from '../types/lesson'
 
 interface LesMetLabel extends Les {
@@ -31,6 +32,9 @@ function LesItem({ les }: { les: LesMetLabel }) {
               ? `Duo-cursus${les.tweede_persoon ? ` met ${les.tweede_persoon.voornaam} ${les.tweede_persoon.achternaam}` : ''}`
               : 'Privéles'}
           </p>
+          <div className="mt-1">
+            <DisciplineBadge discipline={les.discipline} />
+          </div>
         </div>
         <span className={`rounded-full px-2 py-1 text-xs font-medium ${STATUS_STYLES[les.status]}`}>
           {STATUS_LABELS[les.status]}
