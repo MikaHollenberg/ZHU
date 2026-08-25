@@ -5,6 +5,8 @@ import { MINIMALE_TIJDVAK_MINUTEN, TIJD_OPTIES, tijdNaarMinuten } from '../lib/t
 import { getMaandWeken, toDateKey } from '../lib/kalender'
 import { DISCIPLINE_LABELS, DISCIPLINES } from '../lib/disciplines'
 import type { Discipline } from '../lib/disciplines'
+import { DUO_CURSUS_TYPE_LABELS, DUO_CURSUS_TYPES } from '../lib/duoCursusType'
+import type { DuoCursusType } from '../lib/duoCursusType'
 import { DisciplineBadge } from '../components/DisciplineBadge'
 import type { Beschikbaarheid, BeschikbaarheidType, LesSoort } from '../types/availability'
 import { LEEG_TWEEDE_PERSOON } from '../types/tweedePersoon'
@@ -24,7 +26,9 @@ const SOORT_LABELS: Record<LesSoort, string> = {
 function samenvatting(entry?: Beschikbaarheid) {
   if (!entry) return '–'
   const basis = entry.type === 'tijdvak' ? `${entry.starttijd?.slice(0, 5)} - ${entry.eindtijd?.slice(0, 5)}` : TYPE_LABELS[entry.type]
-  return entry.soort === 'duo_cursus' ? `${basis} · Duo-cursus` : basis
+  if (entry.soort !== 'duo_cursus') return basis
+  const vorm = entry.duo_cursus_type ? ` (${DUO_CURSUS_TYPE_LABELS[entry.duo_cursus_type]})` : ''
+  return `${basis} · Duo-cursus${vorm}`
 }
 
 function vandaag() {
@@ -47,13 +51,18 @@ export function Availability() {
   const [submitting, setSubmitting] = useState(false)
   const [standaardDiscipline, setStandaardDiscipline] = useState<Discipline>('polyvalk')
   const [disciplineOpslaan, setDisciplineOpslaan] = useState(false)
+  const [standaardSoort, setStandaardSoort] = useState<LesSoort>('priveles')
+  const [standaardDuoCursusType, setStandaardDuoCursusType] = useState<DuoCursusType>('vijf_keer_twee_uur')
+  const [vormOpslaan, setVormOpslaan] = useState(false)
+  const [duoPartner, setDuoPartner] = useState<TweedePersoonInvoer>(LEEG_TWEEDE_PERSOON)
+  const [duoPartnerOpslaan, setDuoPartnerOpslaan] = useState(false)
 
   const [editingDatum, setEditingDatum] = useState<string | null>(null)
   const [editType, setEditType] = useState<BeschikbaarheidType>('hele_dag_beschikbaar')
   const [editStart, setEditStart] = useState('17:00')
   const [editEind, setEditEind] = useState('19:00')
   const [editSoort, setEditSoort] = useState<LesSoort>('priveles')
-  const [editTweedePersoon, setEditTweedePersoon] = useState<TweedePersoonInvoer>(LEEG_TWEEDE_PERSOON)
+  const [editDuoCursusType, setEditDuoCursusType] = useState<DuoCursusType>('vijf_keer_twee_uur')
   const [editDiscipline, setEditDiscipline] = useState<Discipline>('polyvalk')
 
   const today = useMemo(() => vandaag(), [])
@@ -105,6 +114,26 @@ export function Availability() {
     setStandaardDiscipline(profile?.standaard_discipline ?? 'polyvalk')
   }, [profile?.standaard_discipline])
 
+  useEffect(() => {
+    setStandaardSoort(profile?.standaard_soort ?? 'priveles')
+    setStandaardDuoCursusType(profile?.standaard_duo_cursus_type ?? 'vijf_keer_twee_uur')
+  }, [profile?.standaard_soort, profile?.standaard_duo_cursus_type])
+
+  useEffect(() => {
+    setDuoPartner(
+      eigenTweedePersoon
+        ? {
+            voornaam: eigenTweedePersoon.voornaam,
+            achternaam: eigenTweedePersoon.achternaam,
+            email: eigenTweedePersoon.email,
+            telefoonnummer: eigenTweedePersoon.telefoonnummer ?? '',
+            geboortedatum: eigenTweedePersoon.geboortedatum ?? '',
+            geboorteplaats: eigenTweedePersoon.geboorteplaats ?? '',
+          }
+        : LEEG_TWEEDE_PERSOON,
+    )
+  }, [eigenTweedePersoon])
+
   const handleStandaardDisciplineChange = async (waarde: Discipline) => {
     if (!user) return
     setStandaardDiscipline(waarde)
@@ -112,6 +141,60 @@ export function Availability() {
     await supabase.from('profiles').update({ standaard_discipline: waarde }).eq('id', user.id)
     await refreshProfile()
     setDisciplineOpslaan(false)
+  }
+
+  const handleStandaardVormChange = async (waarde: 'priveles' | DuoCursusType) => {
+    if (!user) return
+    const soort: LesSoort = waarde === 'priveles' ? 'priveles' : 'duo_cursus'
+    setStandaardSoort(soort)
+    if (waarde !== 'priveles') setStandaardDuoCursusType(waarde)
+    setVormOpslaan(true)
+    await supabase
+      .from('profiles')
+      .update({
+        standaard_soort: soort,
+        ...(waarde !== 'priveles' ? { standaard_duo_cursus_type: waarde } : {}),
+      })
+      .eq('id', user.id)
+    await refreshProfile()
+    setVormOpslaan(false)
+  }
+
+  const duoPartnerVeldWijzig = (veld: keyof TweedePersoonInvoer, waarde: string) => {
+    setDuoPartner((prev) => ({ ...prev, [veld]: waarde }))
+  }
+
+  const handleDuoPartnerOpslaan = async () => {
+    if (!user) return
+    const { voornaam, achternaam, email, geboortedatum, geboorteplaats } = duoPartner
+    if (!voornaam.trim() || !achternaam.trim() || !email.trim() || !geboortedatum || !geboorteplaats.trim()) {
+      setError('Vul alle gegevens van je duo-partner in.')
+      return
+    }
+    setError(null)
+    setDuoPartnerOpslaan(true)
+    const { data: persoon, error: persoonError } = await supabase
+      .from('tweede_persoon')
+      .upsert(
+        {
+          boeker_id: user.id,
+          voornaam: voornaam.trim(),
+          achternaam: achternaam.trim(),
+          email: email.trim(),
+          telefoonnummer: duoPartner.telefoonnummer.trim() || null,
+          geboortedatum: geboortedatum || null,
+          geboorteplaats: geboorteplaats.trim() || null,
+        },
+        { onConflict: 'boeker_id' },
+      )
+      .select()
+      .single()
+    setDuoPartnerOpslaan(false)
+    if (persoonError) {
+      setError(persoonError.message)
+      return
+    }
+    setEigenTweedePersoon(persoon)
   }
 
   const shiftMaand = (delta: number) => {
@@ -143,24 +226,9 @@ export function Availability() {
     setEditType(entry?.type ?? 'hele_dag_beschikbaar')
     setEditStart(entry?.starttijd?.slice(0, 5) ?? '17:00')
     setEditEind(entry?.eindtijd?.slice(0, 5) ?? '19:00')
-    setEditSoort(entry?.soort ?? 'priveles')
+    setEditSoort(entry?.soort ?? standaardSoort)
+    setEditDuoCursusType(entry?.duo_cursus_type ?? standaardDuoCursusType)
     setEditDiscipline(entry?.discipline ?? standaardDiscipline)
-    setEditTweedePersoon(
-      eigenTweedePersoon
-        ? {
-            voornaam: eigenTweedePersoon.voornaam,
-            achternaam: eigenTweedePersoon.achternaam,
-            email: eigenTweedePersoon.email,
-            telefoonnummer: eigenTweedePersoon.telefoonnummer ?? '',
-            geboortedatum: eigenTweedePersoon.geboortedatum ?? '',
-            geboorteplaats: eigenTweedePersoon.geboorteplaats ?? '',
-          }
-        : LEEG_TWEEDE_PERSOON,
-    )
-  }
-
-  const tweedePersoonVeldWijzig = (veld: keyof TweedePersoonInvoer, waarde: string) => {
-    setEditTweedePersoon((prev) => ({ ...prev, [veld]: waarde }))
   }
 
   const handleSave = async (key: string) => {
@@ -170,45 +238,13 @@ export function Availability() {
       return
     }
 
-    if (editType !== 'hele_dag_onbeschikbaar' && editSoort === 'duo_cursus') {
-      const { voornaam, achternaam, email, geboortedatum, geboorteplaats } = editTweedePersoon
-      if (!voornaam.trim() || !achternaam.trim() || !email.trim() || !geboortedatum || !geboorteplaats.trim()) {
-        setError('Vul alle gegevens van de tweede persoon in.')
-        return
-      }
+    if (editType !== 'hele_dag_onbeschikbaar' && editSoort === 'duo_cursus' && !eigenTweedePersoon) {
+      setError('Vul eerst de gegevens van je duo-partner in bij "Jouw lesvorm" bovenaan.')
+      return
     }
 
     setError(null)
     setSubmitting(true)
-
-    let tweedePersoonId: string | null = null
-
-    if (editType !== 'hele_dag_onbeschikbaar' && editSoort === 'duo_cursus') {
-      const { data: persoon, error: persoonError } = await supabase
-        .from('tweede_persoon')
-        .upsert(
-          {
-            boeker_id: user.id,
-            voornaam: editTweedePersoon.voornaam.trim(),
-            achternaam: editTweedePersoon.achternaam.trim(),
-            email: editTweedePersoon.email.trim(),
-            telefoonnummer: editTweedePersoon.telefoonnummer.trim() || null,
-            geboortedatum: editTweedePersoon.geboortedatum || null,
-            geboorteplaats: editTweedePersoon.geboorteplaats.trim() || null,
-          },
-          { onConflict: 'boeker_id' },
-        )
-        .select()
-        .single()
-
-      if (persoonError) {
-        setSubmitting(false)
-        setError(persoonError.message)
-        return
-      }
-      tweedePersoonId = persoon.id
-      setEigenTweedePersoon(persoon)
-    }
 
     const soort = editType !== 'hele_dag_onbeschikbaar' ? editSoort : 'priveles'
 
@@ -221,8 +257,9 @@ export function Availability() {
         eindtijd: editType === 'tijdvak' ? editEind : null,
         status: 'open',
         soort,
-        tweede_persoon_id: soort === 'duo_cursus' ? tweedePersoonId : null,
+        tweede_persoon_id: soort === 'duo_cursus' ? (eigenTweedePersoon?.id ?? null) : null,
         discipline: editDiscipline,
+        duo_cursus_type: soort === 'duo_cursus' ? editDuoCursusType : null,
       },
       { onConflict: 'cursist_id,datum' },
     )
@@ -276,7 +313,7 @@ export function Availability() {
       </div>
 
       {!isInstructeur && (
-        <div className="mb-5 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+        <div className="mb-5 space-y-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-slate-700">Jouw discipline</span>
             <select
@@ -290,10 +327,109 @@ export function Availability() {
                 </option>
               ))}
             </select>
+            <p className="mt-1 text-xs text-slate-500">
+              {disciplineOpslaan ? 'Bezig met opslaan...' : 'Wordt onthouden en automatisch gebruikt bij het doorgeven van beschikbaarheid.'}
+            </p>
           </label>
-          <p className="mt-1 text-xs text-slate-500">
-            {disciplineOpslaan ? 'Bezig met opslaan...' : 'Wordt onthouden en automatisch gebruikt bij het doorgeven van beschikbaarheid.'}
-          </p>
+
+          <label className="block">
+            <span className="mb-1 block text-sm font-medium text-slate-700">Jouw lesvorm</span>
+            <select
+              value={standaardSoort === 'priveles' ? 'priveles' : standaardDuoCursusType}
+              onChange={(e) => handleStandaardVormChange(e.target.value as 'priveles' | DuoCursusType)}
+              className="input"
+            >
+              <option value="priveles">{SOORT_LABELS.priveles}</option>
+              {DUO_CURSUS_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  Duo-cursus – {DUO_CURSUS_TYPE_LABELS[t]}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-slate-500">
+              {vormOpslaan ? 'Bezig met opslaan...' : 'Wordt onthouden en automatisch gebruikt bij het doorgeven van beschikbaarheid.'}
+            </p>
+          </label>
+
+          {standaardSoort === 'duo_cursus' && (
+            <div className="space-y-3 rounded-md bg-white p-3">
+              <p className="text-sm font-medium text-slate-700">Gegevens duo-partner</p>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="mb-1 block text-sm text-slate-700">Voornaam *</span>
+                  <input
+                    required
+                    type="text"
+                    value={duoPartner.voornaam}
+                    onChange={(e) => duoPartnerVeldWijzig('voornaam', e.target.value)}
+                    className="input"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-sm text-slate-700">Achternaam *</span>
+                  <input
+                    required
+                    type="text"
+                    value={duoPartner.achternaam}
+                    onChange={(e) => duoPartnerVeldWijzig('achternaam', e.target.value)}
+                    className="input"
+                  />
+                </label>
+              </div>
+              <label className="block">
+                <span className="mb-1 block text-sm text-slate-700">E-mailadres *</span>
+                <input
+                  required
+                  type="email"
+                  value={duoPartner.email}
+                  onChange={(e) => duoPartnerVeldWijzig('email', e.target.value)}
+                  className="input"
+                />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-sm text-slate-700">Telefoonnummer</span>
+                <input
+                  type="tel"
+                  value={duoPartner.telefoonnummer}
+                  onChange={(e) => duoPartnerVeldWijzig('telefoonnummer', e.target.value)}
+                  className="input"
+                />
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="mb-1 block text-sm text-slate-700">Geboortedatum *</span>
+                  <input
+                    required
+                    type="date"
+                    value={duoPartner.geboortedatum}
+                    onChange={(e) => duoPartnerVeldWijzig('geboortedatum', e.target.value)}
+                    className="input"
+                  />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-sm text-slate-700">Geboorteplaats *</span>
+                  <input
+                    required
+                    type="text"
+                    value={duoPartner.geboorteplaats}
+                    onChange={(e) => duoPartnerVeldWijzig('geboorteplaats', e.target.value)}
+                    className="input"
+                  />
+                </label>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  disabled={duoPartnerOpslaan}
+                  onClick={handleDuoPartnerOpslaan}
+                  className="btn-accent"
+                >
+                  {duoPartnerOpslaan ? 'Bezig...' : 'Opslaan'}
+                </button>
+                {eigenTweedePersoon && <span className="text-xs text-slate-500">Onthouden.</span>}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -398,96 +534,11 @@ export function Availability() {
                         )}
 
                         {!isInstructeur && editType !== 'hele_dag_onbeschikbaar' && (
-                          <div className="space-y-3 border-t border-slate-100 pt-3">
-                            <div className="space-y-2">
-                              {(Object.keys(SOORT_LABELS) as LesSoort[]).map((optie) => (
-                                <label key={optie} className="flex items-center gap-2 text-sm text-slate-700">
-                                  <input
-                                    type="radio"
-                                    name={`soort-${key}`}
-                                    value={optie}
-                                    checked={editSoort === optie}
-                                    onChange={() => setEditSoort(optie)}
-                                  />
-                                  {SOORT_LABELS[optie]}
-                                </label>
-                              ))}
-                            </div>
-
-                            {editSoort === 'duo_cursus' && (
-                              <div className="space-y-3 rounded-md bg-slate-50 p-3">
-                                <p className="text-sm font-medium text-slate-700">Gegevens tweede persoon</p>
-                                {eigenTweedePersoon && (
-                                  <p className="text-xs text-slate-500">
-                                    Onthouden van je vaste duo-partner. Pas aan indien nodig.
-                                  </p>
-                                )}
-                                <div className="grid grid-cols-2 gap-3">
-                                  <label className="block">
-                                    <span className="mb-1 block text-sm text-slate-700">Voornaam *</span>
-                                    <input
-                                      required
-                                      type="text"
-                                      value={editTweedePersoon.voornaam}
-                                      onChange={(e) => tweedePersoonVeldWijzig('voornaam', e.target.value)}
-                                      className="input"
-                                    />
-                                  </label>
-                                  <label className="block">
-                                    <span className="mb-1 block text-sm text-slate-700">Achternaam *</span>
-                                    <input
-                                      required
-                                      type="text"
-                                      value={editTweedePersoon.achternaam}
-                                      onChange={(e) => tweedePersoonVeldWijzig('achternaam', e.target.value)}
-                                      className="input"
-                                    />
-                                  </label>
-                                </div>
-                                <label className="block">
-                                  <span className="mb-1 block text-sm text-slate-700">E-mailadres *</span>
-                                  <input
-                                    required
-                                    type="email"
-                                    value={editTweedePersoon.email}
-                                    onChange={(e) => tweedePersoonVeldWijzig('email', e.target.value)}
-                                    className="input"
-                                  />
-                                </label>
-                                <label className="block">
-                                  <span className="mb-1 block text-sm text-slate-700">Telefoonnummer</span>
-                                  <input
-                                    type="tel"
-                                    value={editTweedePersoon.telefoonnummer}
-                                    onChange={(e) => tweedePersoonVeldWijzig('telefoonnummer', e.target.value)}
-                                    className="input"
-                                  />
-                                </label>
-                                <div className="grid grid-cols-2 gap-3">
-                                  <label className="block">
-                                    <span className="mb-1 block text-sm text-slate-700">Geboortedatum *</span>
-                                    <input
-                                      required
-                                      type="date"
-                                      value={editTweedePersoon.geboortedatum}
-                                      onChange={(e) => tweedePersoonVeldWijzig('geboortedatum', e.target.value)}
-                                      className="input"
-                                    />
-                                  </label>
-                                  <label className="block">
-                                    <span className="mb-1 block text-sm text-slate-700">Geboorteplaats *</span>
-                                    <input
-                                      required
-                                      type="text"
-                                      value={editTweedePersoon.geboorteplaats}
-                                      onChange={(e) => tweedePersoonVeldWijzig('geboorteplaats', e.target.value)}
-                                      className="input"
-                                    />
-                                  </label>
-                                </div>
-                              </div>
-                            )}
-                          </div>
+                          <p className="border-t border-slate-100 pt-3 text-sm text-slate-500">
+                            Lesvorm: {SOORT_LABELS[editSoort]}
+                            {editSoort === 'duo_cursus' && ` (${DUO_CURSUS_TYPE_LABELS[editDuoCursusType]})`}
+                            {' — pas dit aan bij "Jouw lesvorm" bovenaan.'}
+                          </p>
                         )}
 
                         <div className="flex items-center gap-3 pt-1">

@@ -14,6 +14,7 @@ create type les_status as enum ('gepland', 'verzet', 'geannuleerd');
 create type label_type as enum ('verzetten', 'annuleren', 'beide');
 create type les_soort as enum ('priveles', 'duo_cursus');
 create type discipline as enum ('polyvalk', 'fox22', 'windsurf');
+create type duo_cursus_type as enum ('vijf_keer_twee_uur', 'twee_daagse');
 
 -- ------------------------------------------------------------
 -- Tabel: profiles (cursisten + beheerder)
@@ -30,6 +31,8 @@ create table public.profiles (
   rol user_role not null default 'cursist',
   gearchiveerd boolean not null default false,
   standaard_discipline discipline,
+  standaard_soort les_soort,
+  standaard_duo_cursus_type duo_cursus_type,
   instructeur_goedgekeurd boolean not null default false,
   aangemaakt_op timestamptz not null default now()
 );
@@ -193,6 +196,7 @@ create table public.beschikbaarheid (
   soort les_soort not null default 'priveles',
   tweede_persoon_id uuid references public.tweede_persoon (id),
   discipline discipline not null default 'polyvalk',
+  duo_cursus_type duo_cursus_type,
   aangemaakt_op timestamptz not null default now(),
   -- Een tijdvak moet minimaal 2 uur duren.
   constraint tijdvak_tijden_check check (
@@ -203,6 +207,10 @@ create table public.beschikbaarheid (
   constraint beschikbaarheid_duo_check check (
     (soort = 'duo_cursus' and tweede_persoon_id is not null)
     or (soort = 'priveles' and tweede_persoon_id is null)
+  ),
+  constraint beschikbaarheid_duo_cursus_type_check check (
+    (soort = 'duo_cursus' and duo_cursus_type is not null)
+    or (soort = 'priveles' and duo_cursus_type is null)
   )
 );
 
@@ -273,12 +281,17 @@ create table public.lessen (
   tweede_persoon_id uuid references public.tweede_persoon (id),
   instructeur_id uuid references public.profiles (id),
   discipline discipline not null default 'polyvalk',
+  duo_cursus_type duo_cursus_type,
   aangemaakt_op timestamptz not null default now(),
   -- Een les moet minimaal 2 uur duren.
   constraint lessen_duur_check check (eindtijd - starttijd >= interval '2 hours'),
   constraint lessen_duo_check check (
     (soort = 'duo_cursus' and tweede_persoon_id is not null)
     or (soort = 'priveles' and tweede_persoon_id is null)
+  ),
+  constraint lessen_duo_cursus_type_check check (
+    (soort = 'duo_cursus' and duo_cursus_type is not null)
+    or (soort = 'priveles' and duo_cursus_type is null)
   )
 );
 
@@ -403,7 +416,8 @@ create or replace function public.plan_les(
   p_beschikbaarheid_id uuid default null,
   p_soort les_soort default 'priveles',
   p_tweede_persoon_id uuid default null,
-  p_discipline discipline default 'polyvalk'
+  p_discipline discipline default 'polyvalk',
+  p_duo_cursus_type duo_cursus_type default null
 )
 returns public.lessen
 language plpgsql
@@ -423,13 +437,17 @@ begin
     raise exception 'Bij een duo-cursus is een tweede persoon verplicht';
   end if;
 
+  if p_soort = 'duo_cursus' and p_duo_cursus_type is null then
+    raise exception 'Bij een duo-cursus is de vorm (5x2 uur of 2-daagse) verplicht';
+  end if;
+
   insert into public.lessen (
     cursist_id, datum, starttijd, eindtijd, status, beschikbaarheid_id,
-    soort, tweede_persoon_id, discipline
+    soort, tweede_persoon_id, discipline, duo_cursus_type
   )
   values (
     p_cursist_id, p_datum, p_starttijd, p_eindtijd, 'gepland', p_beschikbaarheid_id,
-    p_soort, p_tweede_persoon_id, p_discipline
+    p_soort, p_tweede_persoon_id, p_discipline, p_duo_cursus_type
   )
   returning * into v_les;
 
@@ -482,11 +500,11 @@ begin
 
   insert into public.lessen (
     cursist_id, datum, starttijd, eindtijd, status, oorspronkelijke_les_id,
-    soort, tweede_persoon_id, instructeur_id, discipline
+    soort, tweede_persoon_id, instructeur_id, discipline, duo_cursus_type
   )
   values (
     v_oude.cursist_id, p_nieuwe_datum, p_nieuwe_starttijd, p_nieuwe_eindtijd, 'gepland', p_les_id,
-    v_oude.soort, v_oude.tweede_persoon_id, v_oude.instructeur_id, v_oude.discipline
+    v_oude.soort, v_oude.tweede_persoon_id, v_oude.instructeur_id, v_oude.discipline, v_oude.duo_cursus_type
   )
   returning * into v_nieuwe;
 

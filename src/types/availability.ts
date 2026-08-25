@@ -1,4 +1,5 @@
 import type { Discipline } from '../lib/disciplines'
+import type { DuoCursusType } from '../lib/duoCursusType'
 
 export type BeschikbaarheidType = 'hele_dag_beschikbaar' | 'hele_dag_onbeschikbaar' | 'tijdvak'
 export type BeschikbaarheidStatus = 'open' | 'ingepland'
@@ -15,5 +16,6 @@ export interface Beschikbaarheid {
   soort: LesSoort
   tweede_persoon_id: string | null
   discipline: Discipline
+  duo_cursus_type: DuoCursusType | null
   aangemaakt_op: string
 }

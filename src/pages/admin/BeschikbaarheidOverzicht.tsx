@@ -5,6 +5,8 @@ import { getWeekDagen, isoWeekNumber, startOfWeek, toDateKey } from '../../lib/k
 import { STATUS_LABELS } from '../../lib/lesStatus'
 import { DISCIPLINE_BADGE_CLASSES, DISCIPLINE_LABELS, DISCIPLINES } from '../../lib/disciplines'
 import type { Discipline } from '../../lib/disciplines'
+import { DUO_CURSUS_TYPE_LABELS, DUO_CURSUS_TYPE_SHORT_LABELS, DUO_CURSUS_TYPES } from '../../lib/duoCursusType'
+import type { DuoCursusType } from '../../lib/duoCursusType'
 import { DisciplineBadge } from '../../components/DisciplineBadge'
 import type { Beschikbaarheid, BeschikbaarheidType, LesSoort } from '../../types/availability'
 import type { Label, Les } from '../../types/lesson'
@@ -205,6 +207,9 @@ function CelPaneel({
   const beschikbaarheidDuo = beschikbaarheid?.soort === 'duo_cursus' ? beschikbaarheid : null
   const opgeslagenPartner = tweedePersoonPerBoeker[cursist.id] ?? null
   const [planSoort, setPlanSoort] = useState<LesSoort>(beschikbaarheidDuo ? 'duo_cursus' : 'priveles')
+  const [planDuoCursusType, setPlanDuoCursusType] = useState<DuoCursusType>(
+    beschikbaarheidDuo?.duo_cursus_type ?? 'vijf_keer_twee_uur',
+  )
   const [planTweedePersoon, setPlanTweedePersoon] = useState<TweedePersoonInvoer>(
     opgeslagenPartner
       ? {
@@ -296,6 +301,7 @@ function CelPaneel({
 
     const soort = beschikbaarheidDuo ? 'duo_cursus' : planSoort
     const discipline = beschikbaarheid ? beschikbaarheid.discipline : planDiscipline
+    const duoCursusType = beschikbaarheidDuo ? beschikbaarheidDuo.duo_cursus_type : planDuoCursusType
 
     const { error: rpcError } = await supabase.rpc('plan_les', {
       p_cursist_id: cursist.id,
@@ -307,6 +313,7 @@ function CelPaneel({
       p_soort: soort,
       p_tweede_persoon_id: tweedePersoonId,
       p_discipline: discipline,
+      p_duo_cursus_type: soort === 'duo_cursus' ? duoCursusType : null,
     })
     setSubmitting(false)
     if (rpcError) {
@@ -422,7 +429,7 @@ function CelPaneel({
             </p>
             <p className="mb-2 text-sm text-slate-600">
               {les.soort === 'duo_cursus'
-                ? `Duo-cursus${lesTweedePersoon ? ` met ${lesTweedePersoon.voornaam} ${lesTweedePersoon.achternaam}` : ''}`
+                ? `Duo-cursus${les.duo_cursus_type ? ` (${DUO_CURSUS_TYPE_LABELS[les.duo_cursus_type]})` : ''}${lesTweedePersoon ? ` met ${lesTweedePersoon.voornaam} ${lesTweedePersoon.achternaam}` : ''}`
                 : 'Privéles'}
             </p>
             {les.label && <p className="mb-3 text-sm text-slate-500">Reden: {les.label.naam}</p>}
@@ -531,7 +538,9 @@ function CelPaneel({
 
             {beschikbaarheidDuo ? (
               <p className="rounded-md bg-brand-blue-light/20 px-3 py-2 text-sm text-brand-blue-dark">
-                Duo-cursus, opgegeven met{' '}
+                Duo-cursus
+                {beschikbaarheidDuo.duo_cursus_type ? ` (${DUO_CURSUS_TYPE_LABELS[beschikbaarheidDuo.duo_cursus_type]})` : ''}
+                , opgegeven met{' '}
                 {beschikbaarheidTweedePersoon
                   ? `${beschikbaarheidTweedePersoon.voornaam} ${beschikbaarheidTweedePersoon.achternaam}`
                   : 'een tweede persoon'}
@@ -554,6 +563,21 @@ function CelPaneel({
                 </div>
                 {planSoort === 'duo_cursus' && (
                   <>
+                    <div className="space-y-2">
+                      <span className="mb-1 block text-sm font-medium text-slate-700">Vorm van de cursus</span>
+                      {DUO_CURSUS_TYPES.map((optie) => (
+                        <label key={optie} className="flex items-center gap-2 text-sm text-slate-700">
+                          <input
+                            type="radio"
+                            name="plan-duo-cursus-type"
+                            value={optie}
+                            checked={planDuoCursusType === optie}
+                            onChange={() => setPlanDuoCursusType(optie)}
+                          />
+                          {DUO_CURSUS_TYPE_LABELS[optie]}
+                        </label>
+                      ))}
+                    </div>
                     {opgeslagenPartner && (
                       <p className="text-xs text-slate-500">
                         Vaste duo-partner van deze cursist, onthouden van een eerdere keer. Pas aan indien nodig.
@@ -975,7 +999,8 @@ export function AdminBeschikbaarheid() {
                           >
                             <div>
                               {l.starttijd.slice(0, 5)}-{l.eindtijd.slice(0, 5)}
-                              {l.soort === 'duo_cursus' && ' (Duo)'}
+                              {l.soort === 'duo_cursus' &&
+                                ` (Duo${l.duo_cursus_type ? ` ${DUO_CURSUS_TYPE_SHORT_LABELS[l.duo_cursus_type]}` : ''})`}
                             </div>
                             <div className="text-[10px] opacity-90">{DISCIPLINE_LABELS[l.discipline]}</div>
                           </div>
@@ -988,7 +1013,8 @@ export function AdminBeschikbaarheid() {
                             {b.type === 'tijdvak'
                               ? `${b.starttijd?.slice(0, 5)}-${b.eindtijd?.slice(0, 5)}`
                               : BESCHIKBAAR_LABELS[b.type]}
-                            {b.soort === 'duo_cursus' && ' (Duo)'}
+                            {b.soort === 'duo_cursus' &&
+                              ` (Duo${b.duo_cursus_type ? ` ${DUO_CURSUS_TYPE_SHORT_LABELS[b.duo_cursus_type]}` : ''})`}
                             {b.type !== 'hele_dag_onbeschikbaar' && (
                               <>
                                 <br />

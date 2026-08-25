@@ -3,9 +3,16 @@ import { supabase } from '../../lib/supabase'
 import type { LesSoort } from '../../types/availability'
 import type { Profile, UserRole } from '../../types/profile'
 import type { TweedePersoon } from '../../types/tweedePersoon'
+import { DUO_CURSUS_TYPE_LABELS } from '../../lib/duoCursusType'
+import type { DuoCursusType } from '../../lib/duoCursusType'
 
 type Sortering = 'nieuwste' | 'naam'
 type RolFilter = 'cursist' | 'instructeur'
+
+interface EerstvolgendeBoeking {
+  soort: LesSoort
+  duoCursusType: DuoCursusType | null
+}
 
 const SOORT_LABELS: Record<LesSoort, string> = {
   priveles: 'Privéles',
@@ -100,7 +107,7 @@ function DuoPartnerPaneel({
 
 export function AdminCursisten() {
   const [profiles, setProfiles] = useState<Profile[]>([])
-  const [eerstvolgendeSoort, setEerstvolgendeSoort] = useState<Record<string, LesSoort>>({})
+  const [eerstvolgendeSoort, setEerstvolgendeSoort] = useState<Record<string, EerstvolgendeBoeking>>({})
   const [tweedePersoonPerBoeker, setTweedePersoonPerBoeker] = useState<Record<string, TweedePersoon>>({})
   const [loading, setLoading] = useState(true)
   const [zoekterm, setZoekterm] = useState('')
@@ -119,15 +126,15 @@ export function AdminCursisten() {
       const vandaag = new Date().toISOString().slice(0, 10)
       const { data: lessenData } = await supabase
         .from('lessen')
-        .select('cursist_id, datum, soort')
+        .select('cursist_id, datum, soort, duo_cursus_type')
         .eq('status', 'gepland')
         .gte('datum', vandaag)
         .order('datum', { ascending: true })
 
-      const map: Record<string, LesSoort> = {}
+      const map: Record<string, EerstvolgendeBoeking> = {}
       for (const les of lessenData ?? []) {
         if (!(les.cursist_id in map)) {
-          map[les.cursist_id] = les.soort
+          map[les.cursist_id] = { soort: les.soort, duoCursusType: les.duo_cursus_type }
         }
       }
       setEerstvolgendeSoort(map)
@@ -281,7 +288,7 @@ export function AdminCursisten() {
             </thead>
             <tbody>
               {gefilterd.map((p) => {
-                const soort = eerstvolgendeSoort[p.id]
+                const boeking = eerstvolgendeSoort[p.id]
                 const partner = tweedePersoonPerBoeker[p.id]
                 return (
                   <tr key={p.id} className="border-t border-slate-100">
@@ -296,15 +303,18 @@ export function AdminCursisten() {
                     {rolFilter === 'cursist' && (
                       <>
                         <td className="px-4 py-2">
-                          {soort ? (
+                          {boeking ? (
                             <span
                               className={
-                                soort === 'duo_cursus'
+                                boeking.soort === 'duo_cursus'
                                   ? 'rounded-full bg-brand-yellow/40 px-2 py-1 text-xs font-medium text-brand-blue-dark'
                                   : 'rounded-full bg-brand-blue-light/40 px-2 py-1 text-xs font-medium text-brand-blue-dark'
                               }
                             >
-                              {SOORT_LABELS[soort]}
+                              {SOORT_LABELS[boeking.soort]}
+                              {boeking.soort === 'duo_cursus' && boeking.duoCursusType
+                                ? ` (${DUO_CURSUS_TYPE_LABELS[boeking.duoCursusType]})`
+                                : ''}
                             </span>
                           ) : (
                             <span className="text-slate-300">-</span>
