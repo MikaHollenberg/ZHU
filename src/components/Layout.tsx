@@ -120,8 +120,16 @@ export function Layout({ children }: { children: ReactNode }) {
       </header>
       <main className="mx-auto max-w-7xl px-4 py-8">{children}</main>
       <footer className="border-t border-brand-blue-light/40 py-6">
-        <div className="mx-auto flex max-w-7xl justify-center px-4">
+        <div className="mx-auto flex max-w-7xl flex-col items-center gap-3 px-4">
           <img src="/logo-horizontaal.png" alt="Zeilschool Het Uitgeestermeer" className="h-8 w-auto opacity-70" />
+          <div className="flex gap-4 text-xs text-slate-400">
+            <Link to="/algemene-voorwaarden" className="hover:text-slate-600 hover:underline">
+              Algemene voorwaarden
+            </Link>
+            <Link to="/privacybeleid" className="hover:text-slate-600 hover:underline">
+              Privacybeleid
+            </Link>
+          </div>
         </div>
       </footer>
     </div>
