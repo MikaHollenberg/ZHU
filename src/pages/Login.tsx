@@ -34,15 +34,16 @@ export function Login() {
 
   return (
     <div className="mx-auto max-w-md">
-      <h1 className="mb-6 text-2xl font-semibold text-brand-blue-dark">Inloggen</h1>
+      <h1 className="mb-1 text-2xl font-bold tracking-tight text-brand-blue-dark">Welkom terug</h1>
+      <p className="mb-6 text-sm text-slate-500">Log in om je lessen te bekijken of beschikbaarheid door te geven.</p>
 
       {wachtwoordGewijzigd && (
-        <p className="mb-4 rounded-md bg-green-50 p-3 text-sm text-green-800">
+        <p className="mb-4 flex items-center gap-1.5 rounded-xl bg-status-bevestigd-bg px-3.5 py-3 text-sm text-status-bevestigd">
           Je wachtwoord is gewijzigd. Log in met je nieuwe wachtwoord.
         </p>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="card space-y-4 p-5">
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-slate-700">E-mailadres</span>
           <input

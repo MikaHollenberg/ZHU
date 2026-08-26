@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
 @theme {
+  --font-sans: "Sora", ui-sans-serif, system-ui, sans-serif;
+
   --color-brand-blue: #2d92c6;
   --color-brand-blue-dark: #1f6d99;
   --color-brand-blue-light: #9ed3ee;
@@ -11,6 +13,18 @@
   --color-discipline-polyvalk: #1e3a8a;
   --color-discipline-fox22: #7dd3fc;
   --color-discipline-windsurf: #db2777;
+
+  /* Statuskleuren — los van de merkkleuren, altijd met tekst/icoon erbij
+     (nooit kleur als enige signaal). */
+  --color-status-bevestigd: #1f8a5f;
+  --color-status-bevestigd-bg: #e3f6ec;
+  --color-status-wachtend: #b9791c;
+  --color-status-wachtend-bg: #fbf0dc;
+  --color-status-geannuleerd: #c0392b;
+  --color-status-geannuleerd-bg: #fbe9e7;
+
+  --shadow-card: 0 1px 2px rgba(15, 55, 77, 0.05), 0 6px 16px rgba(15, 55, 77, 0.07);
+  --shadow-card-hover: 0 2px 4px rgba(15, 55, 77, 0.07), 0 10px 24px rgba(15, 55, 77, 0.1);
 }
 
 :root {
@@ -19,15 +33,23 @@
 
 @layer components {
   .input {
-    @apply w-full rounded-md border border-slate-300 px-3 py-2 text-slate-900 shadow-sm focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue;
+    @apply w-full rounded-xl border border-slate-300 bg-white px-3.5 py-2.5 text-slate-900 shadow-sm transition-colors duration-150 focus:border-brand-blue focus:outline-none focus:ring-2 focus:ring-brand-blue/30;
   }
 
   .btn-primary {
-    @apply rounded-md bg-brand-blue px-4 py-2 font-medium text-white hover:bg-brand-blue-dark disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-blue px-4 py-2 font-medium text-white shadow-sm transition-all duration-150 hover:bg-brand-blue-dark hover:shadow active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100;
   }
 
   .btn-accent {
-    @apply rounded-md border border-brand-yellow-dark/40 bg-brand-yellow px-3 py-1.5 font-medium text-brand-blue-dark hover:bg-brand-yellow-dark;
+    @apply inline-flex items-center justify-center gap-1.5 rounded-full border border-brand-yellow-dark/40 bg-brand-yellow px-3.5 py-1.5 font-medium text-brand-blue-dark shadow-sm transition-all duration-150 hover:bg-brand-yellow-dark active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .card {
+    @apply rounded-2xl border border-slate-200 bg-white shadow-[var(--shadow-card)] transition-shadow duration-150;
+  }
+
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium;
   }
 }
 
@@ -35,8 +57,32 @@ body {
   margin: 0;
   min-height: 100svh;
   background: #f3f9fc;
+  font-family: var(--font-sans);
 }
 
 #root {
   min-height: 100svh;
+}
+
+/* Zichtbare, consistente focus-ring voor toetsenbordnavigatie. De .input-
+   velden hebben al hun eigen focusring (via focus:ring), dus die slaan we
+   hier over om een dubbele ring te voorkomen. */
+:focus-visible {
+  outline: 2px solid var(--color-brand-blue);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.input:focus-visible {
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

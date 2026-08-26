@@ -64,13 +64,18 @@ export function ResetPassword() {
   }
 
   if (status === 'controleren') {
-    return <p className="mx-auto max-w-md py-16 text-center text-slate-500">Link controleren...</p>
+    return (
+      <div className="mx-auto flex max-w-md items-center justify-center gap-2 py-16 text-slate-400">
+        <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-brand-blue" />
+        Link controleren...
+      </div>
+    )
   }
 
   if (status === 'ongeldig') {
     return (
       <div className="mx-auto max-w-md py-8 text-center">
-        <h1 className="mb-4 text-2xl font-semibold text-brand-blue-dark">Link ongeldig of verlopen</h1>
+        <h1 className="mb-4 text-2xl font-bold tracking-tight text-brand-blue-dark">Link ongeldig of verlopen</h1>
         <p className="mb-4 text-slate-600">
           Deze link om je wachtwoord in te stellen is niet (meer) geldig. Vraag een nieuwe aan.
         </p>
@@ -83,8 +88,9 @@ export function ResetPassword() {
 
   return (
     <div className="mx-auto max-w-md">
-      <h1 className="mb-6 text-2xl font-semibold text-brand-blue-dark">Nieuw wachtwoord instellen</h1>
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <h1 className="mb-1 text-2xl font-bold tracking-tight text-brand-blue-dark">Nieuw wachtwoord instellen</h1>
+      <p className="mb-6 text-sm text-slate-500">Kies een nieuw wachtwoord van minimaal 6 tekens.</p>
+      <form onSubmit={handleSubmit} className="card space-y-4 p-5">
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-slate-700">Nieuw wachtwoord</span>
           <input

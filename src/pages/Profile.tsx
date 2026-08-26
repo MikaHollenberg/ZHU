@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
+import { CheckIcon } from '../components/icons'
 
 export function Profile() {
   const { profile, refreshProfile } = useAuth()
@@ -63,14 +64,20 @@ export function Profile() {
   }
 
   if (!profile) {
-    return <p className="text-slate-500">Profiel laden...</p>
+    return (
+      <div className="flex items-center gap-2 py-8 text-slate-400">
+        <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-brand-blue" />
+        Profiel laden...
+      </div>
+    )
   }
 
   return (
     <div className="mx-auto max-w-md">
-      <h1 className="mb-6 text-2xl font-semibold text-brand-blue-dark">Mijn gegevens</h1>
+      <h1 className="mb-1 text-2xl font-bold tracking-tight text-brand-blue-dark">Mijn gegevens</h1>
+      <p className="mb-6 text-sm text-slate-500">Houd je contactgegevens up-to-date.</p>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="card space-y-4 p-5">
         <div className="grid grid-cols-2 gap-4">
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-slate-700">Voornaam</span>
@@ -125,7 +132,11 @@ export function Profile() {
         </div>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
-        {saved && <p className="text-sm text-green-600">Gegevens opgeslagen.</p>}
+        {saved && (
+          <p className="flex items-center gap-1.5 text-sm text-status-bevestigd">
+            <CheckIcon className="h-4 w-4" /> Gegevens opgeslagen.
+          </p>
+        )}
 
         <button type="submit" disabled={submitting} className="btn-primary">
           {submitting ? 'Opslaan...' : 'Opslaan'}

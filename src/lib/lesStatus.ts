@@ -7,7 +7,7 @@ export const STATUS_LABELS: Record<LesStatus, string> = {
 }
 
 export const STATUS_STYLES: Record<LesStatus, string> = {
-  gepland: 'bg-green-100 text-green-700',
-  verzet: 'bg-brand-yellow/40 text-brand-blue-dark',
-  geannuleerd: 'bg-red-100 text-red-700',
+  gepland: 'bg-status-bevestigd-bg text-status-bevestigd',
+  verzet: 'bg-status-wachtend-bg text-status-wachtend',
+  geannuleerd: 'bg-status-geannuleerd-bg text-status-geannuleerd',
 }

@@ -90,12 +90,12 @@ export function AdminLabels() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="mb-6 text-2xl font-semibold text-brand-blue-dark">Labels / redenen</h1>
-      <p className="mb-6 text-sm text-slate-600">
+      <h1 className="mb-1 text-2xl font-bold tracking-tight text-brand-blue-dark">Labels / redenen</h1>
+      <p className="mb-6 text-sm text-slate-500">
         Dit zijn de redenen die je kunt kiezen bij het verzetten of annuleren van een les.
       </p>
 
-      <form onSubmit={handleToevoegen} className="mb-8 flex flex-wrap items-end gap-3 rounded-lg border border-brand-blue-light/40 bg-white p-4">
+      <form onSubmit={handleToevoegen} className="card mb-8 flex flex-wrap items-end gap-3 p-4">
         <label className="block flex-1 min-w-[180px]">
           <span className="mb-1 block text-sm font-medium text-slate-700">Nieuwe reden</span>
           <input
@@ -124,11 +124,14 @@ export function AdminLabels() {
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
       {loading ? (
-        <p className="text-slate-500">Laden...</p>
+        <div className="flex items-center gap-2 py-8 text-slate-400">
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-brand-blue" />
+          Laden...
+        </div>
       ) : (
         <ul className="space-y-2">
           {labels.map((label) => (
-            <li key={label.id} className="rounded-md border border-slate-200 bg-white px-4 py-3">
+            <li key={label.id} className="card px-4 py-3.5">
               {bewerkId === label.id ? (
                 <div className="flex flex-wrap items-end gap-3">
                   <label className="block flex-1 min-w-[160px]">

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { CheckIcon } from '../components/icons'
 
 export function Register() {
   const navigate = useNavigate()
@@ -64,15 +65,21 @@ export function Register() {
 
   return (
     <div className="mx-auto max-w-md">
-      <h1 className="mb-6 text-2xl font-semibold text-brand-blue-dark">Aanmelden voor priveles</h1>
+      <h1 className="mb-1 text-2xl font-bold tracking-tight text-brand-blue-dark">Aanmelden voor priveles</h1>
+      <p className="mb-6 text-sm text-slate-500">Maak een account aan om je beschikbaarheid door te geven.</p>
 
       {success ? (
-        <div className="rounded-md bg-green-50 p-4 text-green-800">
-          Je account is aangemaakt. Check je e-mail om je adres te bevestigen. Je wordt zo doorgestuurd naar de
-          inlogpagina...
+        <div className="card flex items-start gap-3 p-5">
+          <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-status-bevestigd-bg text-status-bevestigd">
+            <CheckIcon className="h-4.5 w-4.5" />
+          </span>
+          <p className="text-slate-700">
+            Je account is aangemaakt. Check je e-mail om je adres te bevestigen. Je wordt zo doorgestuurd naar de
+            inlogpagina...
+          </p>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="card space-y-4 p-5">
           <div className="grid grid-cols-2 gap-4">
             <Field label="Voornaam" required>
               <input

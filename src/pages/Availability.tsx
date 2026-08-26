@@ -8,6 +8,7 @@ import type { Discipline } from '../lib/disciplines'
 import { DUO_CURSUS_TYPE_LABELS, DUO_CURSUS_TYPES } from '../lib/duoCursusType'
 import type { DuoCursusType } from '../lib/duoCursusType'
 import { DisciplineBadge } from '../components/DisciplineBadge'
+import { CalendarPlusIcon, CheckIcon, ChevronRightIcon } from '../components/icons'
 import type { Beschikbaarheid, BeschikbaarheidType, LesSoort } from '../types/availability'
 import { LEEG_TWEEDE_PERSOON } from '../types/tweedePersoon'
 import type { TweedePersoon, TweedePersoonInvoer } from '../types/tweedePersoon'
@@ -285,18 +286,19 @@ export function Availability() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="mb-6 text-2xl font-semibold text-brand-blue-dark">Beschikbaarheid</h1>
+      <h1 className="mb-1 text-2xl font-bold tracking-tight text-brand-blue-dark">Beschikbaarheid</h1>
+      <p className="mb-6 text-sm text-slate-500">Geef door wanneer je kunt, wij plannen de rest in.</p>
 
-      <div className="mb-4 flex items-center justify-between">
+      <div className="card mb-5 flex items-center justify-between px-3 py-2.5">
         <button
           type="button"
           onClick={() => shiftMaand(-1)}
           aria-label="Vorige maand"
-          className="rounded-full px-3 py-1 text-xl text-brand-blue hover:bg-brand-blue-light/20"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-lg text-brand-blue transition-colors duration-150 hover:bg-brand-blue-light/20 active:scale-95"
         >
           ‹
         </button>
-        <span className="text-lg font-semibold capitalize text-slate-800">
+        <span className="text-base font-semibold capitalize text-slate-800">
           {new Date(maand.jaar, maand.maand, 1).toLocaleDateString('nl-NL', {
             month: 'long',
             year: 'numeric',
@@ -306,14 +308,14 @@ export function Availability() {
           type="button"
           onClick={() => shiftMaand(1)}
           aria-label="Volgende maand"
-          className="rounded-full px-3 py-1 text-xl text-brand-blue hover:bg-brand-blue-light/20"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-lg text-brand-blue transition-colors duration-150 hover:bg-brand-blue-light/20 active:scale-95"
         >
           ›
         </button>
       </div>
 
       {!isInstructeur && (
-        <div className="mb-5 space-y-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+        <div className="card mb-5 space-y-4 px-4 py-4">
           <label className="block">
             <span className="mb-1 block text-sm font-medium text-slate-700">Jouw discipline</span>
             <select
@@ -352,7 +354,7 @@ export function Availability() {
           </label>
 
           {standaardSoort === 'duo_cursus' && (
-            <div className="space-y-3 rounded-md bg-white p-3">
+            <div className="space-y-3 rounded-xl bg-brand-blue-light/10 p-3.5">
               <p className="text-sm font-medium text-slate-700">Gegevens duo-partner</p>
               <div className="grid grid-cols-2 gap-3">
                 <label className="block">
@@ -426,7 +428,11 @@ export function Availability() {
                 >
                   {duoPartnerOpslaan ? 'Bezig...' : 'Opslaan'}
                 </button>
-                {eigenTweedePersoon && <span className="text-xs text-slate-500">Onthouden.</span>}
+                {eigenTweedePersoon && (
+                  <span className="inline-flex items-center gap-1 text-xs text-slate-500">
+                    <CheckIcon className="h-3.5 w-3.5 text-status-bevestigd" /> Onthouden
+                  </span>
+                )}
               </div>
             </div>
           )}
@@ -436,11 +442,16 @@ export function Availability() {
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
       {loading ? (
-        <p className="text-slate-500">Laden...</p>
+        <div className="flex items-center gap-2 py-8 text-slate-400">
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-brand-blue" />
+          Laden...
+        </div>
       ) : (
         weken.map((week) => (
           <div key={week.weekNummer} className="mb-5">
-            <p className="mb-2 text-sm font-semibold text-slate-500">Week {week.weekNummer}</p>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+              Week {week.weekNummer}
+            </p>
             <div className="space-y-2">
               {week.dagen.map((dag) => {
                 const key = toDateKey(dag)
@@ -452,48 +463,62 @@ export function Availability() {
                 return (
                   <div
                     key={key}
-                    className={`overflow-hidden rounded-lg border bg-slate-50 ${
-                      isEditing ? 'border-brand-blue' : 'border-slate-200'
-                    } ${isPast ? 'opacity-50' : ''}`}
+                    className={`card overflow-hidden ${isEditing ? 'ring-2 ring-brand-blue/40' : ''} ${
+                      isPast ? 'opacity-50' : ''
+                    }`}
                   >
                     <button
                       type="button"
                       disabled={isPast || isLocked}
                       onClick={() => openEditor(key, entry)}
-                      className="flex w-full items-center justify-between px-4 py-3 text-left disabled:cursor-not-allowed"
+                      className="group flex w-full items-center justify-between px-4 py-3.5 text-left transition-colors duration-150 hover:bg-brand-blue-light/10 disabled:cursor-not-allowed disabled:hover:bg-transparent"
                     >
-                      <div>
+                      <div className="min-w-0">
                         <p className="font-medium capitalize text-slate-800">
                           {dag.toLocaleDateString('nl-NL', { weekday: 'long' })}{' '}
                           <span className="font-normal text-slate-500">
                             {dag.getDate()} {dag.toLocaleDateString('nl-NL', { month: 'short' })}
                           </span>
                         </p>
-                        <p className="flex items-center gap-2 text-sm text-slate-500">
-                          {samenvatting(entry)}
+                        <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-sm">
+                          {entry ? (
+                            <span className="text-slate-500">{samenvatting(entry)}</span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-slate-400">
+                              <CalendarPlusIcon className="h-3.5 w-3.5" /> Nog niets doorgegeven
+                            </span>
+                          )}
                           {!isInstructeur && entry && entry.type !== 'hele_dag_onbeschikbaar' && (
                             <DisciplineBadge discipline={entry.discipline} />
                           )}
                         </p>
                       </div>
-                      {isLocked && (
-                        <span className="rounded-full bg-brand-blue-light/40 px-2 py-1 text-xs font-medium text-brand-blue-dark">
-                          Ingepland
+                      {isLocked ? (
+                        <span className="badge bg-status-bevestigd-bg text-status-bevestigd">
+                          <CheckIcon className="h-3.5 w-3.5" /> Ingepland
                         </span>
+                      ) : (
+                        !isPast && (
+                          <ChevronRightIcon className="h-4 w-4 flex-none text-slate-300 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-brand-blue" />
+                        )
                       )}
                     </button>
 
                     {isEditing && (
-                      <div className="space-y-3 border-t border-slate-200 bg-white px-4 py-4">
-                        <div className="space-y-2">
+                      <div className="space-y-4 border-t border-slate-100 bg-white px-4 py-4">
+                        <div className="flex flex-wrap gap-2">
                           {(Object.keys(TYPE_LABELS) as BeschikbaarheidType[]).map((optie) => (
-                            <label key={optie} className="flex items-center gap-2 text-sm text-slate-700">
+                            <label
+                              key={optie}
+                              className="cursor-pointer rounded-full border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors duration-150 has-[:checked]:border-brand-blue has-[:checked]:bg-brand-blue has-[:checked]:text-white has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand-blue/40"
+                            >
                               <input
                                 type="radio"
                                 name={`type-${key}`}
                                 value={optie}
                                 checked={editType === optie}
                                 onChange={() => setEditType(optie)}
+                                className="sr-only"
                               />
                               {TYPE_LABELS[optie]}
                             </label>
@@ -534,8 +559,8 @@ export function Availability() {
                         )}
 
                         {!isInstructeur && editType !== 'hele_dag_onbeschikbaar' && (
-                          <p className="border-t border-slate-100 pt-3 text-sm text-slate-500">
-                            Lesvorm: {SOORT_LABELS[editSoort]}
+                          <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-500">
+                            Lesvorm: <span className="font-medium text-slate-700">{SOORT_LABELS[editSoort]}</span>
                             {editSoort === 'duo_cursus' && ` (${DUO_CURSUS_TYPE_LABELS[editDuoCursusType]})`}
                             {' — pas dit aan bij "Jouw lesvorm" bovenaan.'}
                           </p>
@@ -555,7 +580,7 @@ export function Availability() {
                               type="button"
                               disabled={submitting}
                               onClick={() => handleClear(key)}
-                              className="text-sm text-red-600 hover:underline"
+                              className="text-sm font-medium text-red-600 transition-colors hover:text-red-700 hover:underline"
                             >
                               Wissen
                             </button>
@@ -563,7 +588,7 @@ export function Availability() {
                           <button
                             type="button"
                             onClick={() => setEditingDatum(null)}
-                            className="ml-auto text-sm text-slate-500 hover:underline"
+                            className="ml-auto text-sm text-slate-500 transition-colors hover:text-slate-700 hover:underline"
                           >
                             Annuleren
                           </button>

@@ -88,7 +88,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 onClick={() => setMenuOpen((open) => !open)}
                 aria-label="Menu"
                 aria-expanded={menuOpen}
-                className="flex h-9 w-9 items-center justify-center rounded-md text-brand-blue-dark sm:hidden"
+                className="flex h-9 w-9 items-center justify-center rounded-full text-brand-blue-dark transition-colors duration-150 hover:bg-brand-blue-light/20 sm:hidden"
               >
                 {menuOpen ? (
                   <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth={2}>

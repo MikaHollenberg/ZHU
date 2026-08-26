@@ -3,11 +3,18 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { STATUS_LABELS, STATUS_STYLES } from '../lib/lesStatus'
 import { DisciplineBadge } from '../components/DisciplineBadge'
-import type { Les } from '../types/lesson'
+import { CalendarPlusIcon, CheckIcon, ClockIcon, XIcon } from '../components/icons'
+import type { Les, LesStatus } from '../types/lesson'
 
 interface LesMetLabel extends Les {
   label: { naam: string } | null
   tweede_persoon: { voornaam: string; achternaam: string } | null
+}
+
+const STATUS_ICON: Record<LesStatus, typeof CheckIcon> = {
+  gepland: CheckIcon,
+  verzet: ClockIcon,
+  geannuleerd: XIcon,
 }
 
 function formatDatum(datum: string) {
@@ -19,10 +26,11 @@ function formatDatum(datum: string) {
 }
 
 function LesItem({ les }: { les: LesMetLabel }) {
+  const StatusIcon = STATUS_ICON[les.status]
   return (
-    <li className="rounded-md border border-slate-200 bg-white px-4 py-3">
-      <div className="flex items-center justify-between">
-        <div>
+    <li className="card px-4 py-3.5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
           <p className="font-medium capitalize text-slate-800">{formatDatum(les.datum)}</p>
           <p className="text-sm text-slate-500">
             {les.starttijd.slice(0, 5)} - {les.eindtijd.slice(0, 5)}
@@ -32,18 +40,26 @@ function LesItem({ les }: { les: LesMetLabel }) {
               ? `Duo-cursus${les.tweede_persoon ? ` met ${les.tweede_persoon.voornaam} ${les.tweede_persoon.achternaam}` : ''}`
               : 'Privéles'}
           </p>
-          <div className="mt-1">
+          <div className="mt-1.5">
             <DisciplineBadge discipline={les.discipline} />
           </div>
         </div>
-        <span className={`rounded-full px-2 py-1 text-xs font-medium ${STATUS_STYLES[les.status]}`}>
-          {STATUS_LABELS[les.status]}
+        <span className={`badge flex-none ${STATUS_STYLES[les.status]}`}>
+          <StatusIcon className="h-3.5 w-3.5" /> {STATUS_LABELS[les.status]}
         </span>
       </div>
       {les.status !== 'gepland' && les.label && (
-        <p className="mt-2 text-sm text-slate-500">Reden: {les.label.naam}</p>
+        <p className="mt-2 rounded-lg bg-slate-50 px-2.5 py-1.5 text-sm text-slate-500">Reden: {les.label.naam}</p>
       )}
     </li>
+  )
+}
+
+function LegeStaat({ tekst }: { tekst: string }) {
+  return (
+    <p className="mb-8 flex items-center gap-2 rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-slate-400">
+      <CalendarPlusIcon className="h-5 w-5 flex-none" /> {tekst}
+    </p>
   )
 }
 
@@ -72,15 +88,19 @@ export function MyLessons() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="mb-6 text-2xl font-semibold text-brand-blue-dark">Mijn lessen</h1>
+      <h1 className="mb-1 text-2xl font-bold tracking-tight text-brand-blue-dark">Mijn lessen</h1>
+      <p className="mb-6 text-sm text-slate-500">Een overzicht van al je geboekte priveslessen.</p>
 
       {loading ? (
-        <p className="text-slate-500">Laden...</p>
+        <div className="flex items-center gap-2 py-8 text-slate-400">
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-brand-blue" />
+          Laden...
+        </div>
       ) : (
         <>
-          <h2 className="mb-3 text-lg font-semibold text-slate-800">Toekomstige lessen</h2>
+          <h2 className="mb-3 text-base font-semibold text-slate-800">Toekomstige lessen</h2>
           {toekomstig.length === 0 ? (
-            <p className="mb-8 text-slate-500">Nog geen lessen ingepland.</p>
+            <LegeStaat tekst="Nog geen lessen ingepland." />
           ) : (
             <ul className="mb-8 space-y-2">
               {toekomstig.map((les) => (
@@ -97,7 +117,7 @@ export function MyLessons() {
 
           {toonVerleden && (
             <>
-              <h2 className="mb-3 text-lg font-semibold text-slate-800">Eerdere lessen</h2>
+              <h2 className="mb-3 text-base font-semibold text-slate-800">Eerdere lessen</h2>
               {verleden.length === 0 ? (
                 <p className="text-slate-500">Nog geen eerdere lessen.</p>
               ) : (

@@ -39,7 +39,7 @@ export function Home() {
 
   return (
     <div>
-      <h1 className="mb-2 text-2xl font-semibold text-brand-blue-dark">
+      <h1 className="mb-2 text-2xl font-bold tracking-tight text-brand-blue-dark">
         Welkom{profile ? `, ${profile.voornaam}` : ''}
       </h1>
 
@@ -77,7 +77,7 @@ export function Home() {
           ) : (
             <ul className="mb-4 space-y-2">
               {toekomstig.map((les) => (
-                <li key={les.id} className="rounded-md border border-slate-200 bg-white px-4 py-3">
+                <li key={les.id} className="card px-4 py-3">
                   <p className="font-medium capitalize text-slate-800">{formatDatum(les.datum)}</p>
                   <p className="text-sm text-slate-500">
                     {les.starttijd.slice(0, 5)} - {les.eindtijd.slice(0, 5)}

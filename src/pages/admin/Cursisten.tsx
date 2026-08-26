@@ -53,14 +53,18 @@ function DuoPartnerPaneel({
       className="fixed inset-0 z-20 flex items-end justify-center bg-black/30 p-4 sm:items-center"
       onClick={onClose}
     >
-      <div className="w-full max-w-md rounded-lg bg-white p-5 shadow-lg" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-start justify-between">
           <div>
             <p className="font-semibold text-slate-800">
               Duo-partner van {cursist.voornaam} {cursist.achternaam}
             </p>
           </div>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-600"
+          >
             ✕
           </button>
         </div>
@@ -96,7 +100,7 @@ function DuoPartnerPaneel({
           type="button"
           disabled={submitting}
           onClick={handleLoskoppelen}
-          className="rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+          className="rounded-full border border-red-300 px-3.5 py-1.5 text-sm font-medium text-red-600 transition-colors duration-150 hover:bg-red-50 disabled:opacity-50"
         >
           {submitting ? 'Bezig...' : 'Loskoppelen'}
         </button>
@@ -206,21 +210,22 @@ export function AdminCursisten() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-semibold text-brand-blue-dark">Cursisten &amp; instructeurs</h1>
+      <h1 className="mb-1 text-2xl font-bold tracking-tight text-brand-blue-dark">Cursisten &amp; instructeurs</h1>
+      <p className="mb-6 text-sm text-slate-500">Beheer accounts, rollen en duo-partners.</p>
 
       <div className="mb-4 flex flex-wrap items-end gap-3">
-        <div className="flex overflow-hidden rounded-md border border-slate-300">
+        <div className="flex overflow-hidden rounded-full border border-slate-200 bg-white p-1 shadow-sm">
           <button
             type="button"
             onClick={() => setRolFilter('cursist')}
-            className={`px-3 py-2 text-sm ${rolFilter === 'cursist' ? 'bg-brand-blue text-white' : 'bg-white text-slate-600'}`}
+            className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors duration-150 ${rolFilter === 'cursist' ? 'bg-brand-blue text-white' : 'text-slate-600 hover:bg-slate-50'}`}
           >
             Cursisten
           </button>
           <button
             type="button"
             onClick={() => setRolFilter('instructeur')}
-            className={`px-3 py-2 text-sm ${rolFilter === 'instructeur' ? 'bg-brand-blue text-white' : 'bg-white text-slate-600'}`}
+            className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors duration-150 ${rolFilter === 'instructeur' ? 'bg-brand-blue text-white' : 'text-slate-600 hover:bg-slate-50'}`}
           >
             Instructeurs
           </button>
@@ -244,18 +249,18 @@ export function AdminCursisten() {
             <option value="naam">Achternaam (A-Z)</option>
           </select>
         </label>
-        <div className="flex overflow-hidden rounded-md border border-slate-300">
+        <div className="flex overflow-hidden rounded-full border border-slate-200 bg-white p-1 shadow-sm">
           <button
             type="button"
             onClick={() => setToonGearchiveerd(false)}
-            className={`px-3 py-2 text-sm ${!toonGearchiveerd ? 'bg-brand-blue text-white' : 'bg-white text-slate-600'}`}
+            className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors duration-150 ${!toonGearchiveerd ? 'bg-brand-blue text-white' : 'text-slate-600 hover:bg-slate-50'}`}
           >
             Actief
           </button>
           <button
             type="button"
             onClick={() => setToonGearchiveerd(true)}
-            className={`px-3 py-2 text-sm ${toonGearchiveerd ? 'bg-brand-blue text-white' : 'bg-white text-slate-600'}`}
+            className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors duration-150 ${toonGearchiveerd ? 'bg-brand-blue text-white' : 'text-slate-600 hover:bg-slate-50'}`}
           >
             Gearchiveerd
           </button>
@@ -263,27 +268,30 @@ export function AdminCursisten() {
       </div>
 
       {loading ? (
-        <p className="text-slate-500">Laden...</p>
+        <div className="flex items-center gap-2 py-8 text-slate-400">
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-brand-blue" />
+          Laden...
+        </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <div className="card overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50 text-slate-600">
               <tr>
-                <th className="px-4 py-2">Naam</th>
-                <th className="px-4 py-2">E-mail</th>
-                <th className="px-4 py-2">Telefoon</th>
-                <th className="px-4 py-2">Geboortedatum</th>
-                <th className="px-4 py-2">Geboorteplaats</th>
-                <th className="px-4 py-2">Aangemeld op</th>
+                <th className="px-4 py-2.5 first:rounded-tl-2xl">Naam</th>
+                <th className="px-4 py-2.5">E-mail</th>
+                <th className="px-4 py-2.5">Telefoon</th>
+                <th className="px-4 py-2.5">Geboortedatum</th>
+                <th className="px-4 py-2.5">Geboorteplaats</th>
+                <th className="px-4 py-2.5">Aangemeld op</th>
                 {rolFilter === 'cursist' && (
                   <>
-                    <th className="px-4 py-2">Prive of Duo</th>
-                    <th className="px-4 py-2">Duo-partner</th>
+                    <th className="px-4 py-2.5">Prive of Duo</th>
+                    <th className="px-4 py-2.5">Duo-partner</th>
                   </>
                 )}
-                {rolFilter === 'instructeur' && <th className="px-4 py-2">Goedkeuring</th>}
-                <th className="px-4 py-2">Rol</th>
-                <th className="px-4 py-2">Actie</th>
+                {rolFilter === 'instructeur' && <th className="px-4 py-2.5">Goedkeuring</th>}
+                <th className="px-4 py-2.5">Rol</th>
+                <th className="px-4 py-2.5 last:rounded-tr-2xl">Actie</th>
               </tr>
             </thead>
             <tbody>
@@ -291,7 +299,7 @@ export function AdminCursisten() {
                 const boeking = eerstvolgendeSoort[p.id]
                 const partner = tweedePersoonPerBoeker[p.id]
                 return (
-                  <tr key={p.id} className="border-t border-slate-100">
+                  <tr key={p.id} className="border-t border-slate-100 transition-colors hover:bg-slate-50/60">
                     <td className="px-4 py-2">
                       {p.voornaam} {p.achternaam}
                     </td>
@@ -305,11 +313,11 @@ export function AdminCursisten() {
                         <td className="px-4 py-2">
                           {boeking ? (
                             <span
-                              className={
+                              className={`badge ${
                                 boeking.soort === 'duo_cursus'
-                                  ? 'rounded-full bg-brand-yellow/40 px-2 py-1 text-xs font-medium text-brand-blue-dark'
-                                  : 'rounded-full bg-brand-blue-light/40 px-2 py-1 text-xs font-medium text-brand-blue-dark'
-                              }
+                                  ? 'bg-brand-yellow/40 text-brand-blue-dark'
+                                  : 'bg-brand-blue-light/40 text-brand-blue-dark'
+                              }`}
                             >
                               {SOORT_LABELS[boeking.soort]}
                               {boeking.soort === 'duo_cursus' && boeking.duoCursusType
@@ -325,7 +333,7 @@ export function AdminCursisten() {
                             <button
                               type="button"
                               onClick={() => setBekekenPartnerVoor(p)}
-                              className="inline-flex items-center gap-1.5 rounded-full bg-brand-yellow/40 px-2 py-1 text-xs font-medium text-brand-blue-dark hover:bg-brand-yellow/60"
+                              className="badge bg-brand-yellow/40 text-brand-blue-dark transition-colors duration-150 hover:bg-brand-yellow/60"
                             >
                               <span className="h-2 w-2 rounded-full bg-brand-yellow-dark" />
                               {partner.voornaam} {partner.achternaam}
@@ -340,11 +348,11 @@ export function AdminCursisten() {
                       <td className="px-4 py-2">
                         <div className="flex items-center gap-2">
                           <span
-                            className={
+                            className={`badge ${
                               p.instructeur_goedgekeurd
-                                ? 'rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700'
-                                : 'rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-700'
-                            }
+                                ? 'bg-status-bevestigd-bg text-status-bevestigd'
+                                : 'bg-status-wachtend-bg text-status-wachtend'
+                            }`}
                           >
                             {p.instructeur_goedgekeurd ? 'Goedgekeurd' : 'Wacht op goedkeuring'}
                           </span>
@@ -364,7 +372,7 @@ export function AdminCursisten() {
                         type="button"
                         disabled={submitting === p.id}
                         onClick={() => wijzigRol(p, rolFilter === 'cursist' ? 'instructeur' : 'cursist')}
-                        className="rounded-md border border-brand-blue px-3 py-1.5 text-sm font-medium text-brand-blue hover:bg-brand-blue-light/20 disabled:opacity-50"
+                        className="rounded-full border border-brand-blue px-3.5 py-1.5 text-sm font-medium text-brand-blue transition-colors duration-150 hover:bg-brand-blue-light/20 disabled:opacity-50"
                       >
                         {rolFilter === 'cursist' ? 'Maak instructeur' : 'Maak cursist'}
                       </button>
@@ -376,8 +384,8 @@ export function AdminCursisten() {
                         onClick={() => toggleArchief(p)}
                         className={
                           p.gearchiveerd
-                            ? 'rounded-md border border-brand-blue px-3 py-1.5 text-sm font-medium text-brand-blue hover:bg-brand-blue-light/20 disabled:opacity-50'
-                            : 'rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50'
+                            ? 'rounded-full border border-brand-blue px-3.5 py-1.5 text-sm font-medium text-brand-blue transition-colors duration-150 hover:bg-brand-blue-light/20 disabled:opacity-50'
+                            : 'rounded-full border border-red-300 px-3.5 py-1.5 text-sm font-medium text-red-600 transition-colors duration-150 hover:bg-red-50 disabled:opacity-50'
                         }
                       >
                         {submitting === p.id ? 'Bezig...' : p.gearchiveerd ? 'Activeren' : 'Archiveren'}

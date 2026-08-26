@@ -8,6 +8,7 @@ import type { Discipline } from '../../lib/disciplines'
 import { DUO_CURSUS_TYPE_LABELS, DUO_CURSUS_TYPE_SHORT_LABELS, DUO_CURSUS_TYPES } from '../../lib/duoCursusType'
 import type { DuoCursusType } from '../../lib/duoCursusType'
 import { DisciplineBadge } from '../../components/DisciplineBadge'
+import { CheckIcon, ClockIcon, XIcon } from '../../components/icons'
 import type { Beschikbaarheid, BeschikbaarheidType, LesSoort } from '../../types/availability'
 import type { Label, Les } from '../../types/lesson'
 import type { Profile } from '../../types/profile'
@@ -30,6 +31,28 @@ const SOORT_LABELS: Record<LesSoort, string> = {
 }
 
 const DAG_NAMEN = ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo']
+
+function InstructeurStatusIcon({ les }: { les: LesMetLabel }) {
+  if (les.instructeur_id) {
+    return (
+      <span title="Instructeur gekoppeld">
+        <CheckIcon className="h-3 w-3" />
+      </span>
+    )
+  }
+  if (les.instructeur_aanvraag_id) {
+    return (
+      <span title="Aanvraag in behandeling">
+        <ClockIcon className="h-3 w-3" />
+      </span>
+    )
+  }
+  return (
+    <span title="Nog geen instructeur">
+      <XIcon className="h-3 w-3" />
+    </span>
+  )
+}
 
 interface CelSelectie {
   cursist: Profile
@@ -98,7 +121,7 @@ function TweedePersoonFormulier({
   onChange: (veld: keyof TweedePersoonInvoer, waarde: string) => void
 }) {
   return (
-    <div className="space-y-3 rounded-md bg-slate-50 p-3">
+    <div className="space-y-3 rounded-xl bg-slate-50 p-3.5">
       <p className="text-sm font-medium text-slate-700">Gegevens tweede persoon</p>
       <div className="grid grid-cols-2 gap-3">
         <label className="block">
@@ -440,7 +463,7 @@ function CelPaneel({
       className="fixed inset-0 z-20 flex items-end justify-center bg-black/30 p-4 sm:items-center"
       onClick={onClose}
     >
-      <div className="w-full max-w-md rounded-lg bg-white p-5 shadow-lg" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-start justify-between">
           <div>
             <p className="font-semibold text-slate-800">
@@ -448,7 +471,7 @@ function CelPaneel({
             </p>
             <p className="text-sm capitalize text-slate-500">{formattedDatum}</p>
           </div>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <button type="button" onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-600">
             ✕
           </button>
         </div>
@@ -497,8 +520,8 @@ function CelPaneel({
               (() => {
                 const aanvrager = instructeurs.find((i) => i.id === les.instructeur_aanvraag_id)
                 return (
-                  <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 p-3">
-                    <p className="mb-2 text-sm font-medium text-amber-800">
+                  <div className="mb-3 rounded-xl border border-status-wachtend/25 bg-status-wachtend-bg p-3.5">
+                    <p className="mb-2 text-sm font-medium text-status-wachtend">
                       Aanvraag van {aanvrager ? `${aanvrager.voornaam} ${aanvrager.achternaam}` : 'een instructeur'}
                     </p>
                     <div className="flex gap-3">
@@ -600,7 +623,7 @@ function CelPaneel({
             </div>
 
             {beschikbaarheidDuo ? (
-              <p className="rounded-md bg-brand-blue-light/20 px-3 py-2 text-sm text-brand-blue-dark">
+              <p className="rounded-xl bg-brand-blue-light/20 px-3.5 py-2.5 text-sm text-brand-blue-dark">
                 Duo-cursus
                 {beschikbaarheidDuo.duo_cursus_type ? ` (${DUO_CURSUS_TYPE_LABELS[beschikbaarheidDuo.duo_cursus_type]})` : ''}
                 , opgegeven met{' '}
@@ -610,15 +633,19 @@ function CelPaneel({
               </p>
             ) : (
               <div className="space-y-3 border-t border-slate-100 pt-3">
-                <div className="space-y-2">
+                <div className="flex flex-wrap gap-2">
                   {(Object.keys(SOORT_LABELS) as LesSoort[]).map((optie) => (
-                    <label key={optie} className="flex items-center gap-2 text-sm text-slate-700">
+                    <label
+                      key={optie}
+                      className="cursor-pointer rounded-full border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors duration-150 has-[:checked]:border-brand-blue has-[:checked]:bg-brand-blue has-[:checked]:text-white"
+                    >
                       <input
                         type="radio"
                         name="plan-soort"
                         value={optie}
                         checked={planSoort === optie}
                         onChange={() => setPlanSoort(optie)}
+                        className="sr-only"
                       />
                       {SOORT_LABELS[optie]}
                     </label>
@@ -628,18 +655,24 @@ function CelPaneel({
                   <>
                     <div className="space-y-2">
                       <span className="mb-1 block text-sm font-medium text-slate-700">Vorm van de cursus</span>
-                      {DUO_CURSUS_TYPES.map((optie) => (
-                        <label key={optie} className="flex items-center gap-2 text-sm text-slate-700">
-                          <input
-                            type="radio"
-                            name="plan-duo-cursus-type"
-                            value={optie}
-                            checked={planDuoCursusType === optie}
-                            onChange={() => setPlanDuoCursusType(optie)}
-                          />
-                          {DUO_CURSUS_TYPE_LABELS[optie]}
-                        </label>
-                      ))}
+                      <div className="flex flex-wrap gap-2">
+                        {DUO_CURSUS_TYPES.map((optie) => (
+                          <label
+                            key={optie}
+                            className="cursor-pointer rounded-full border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors duration-150 has-[:checked]:border-brand-blue has-[:checked]:bg-brand-blue has-[:checked]:text-white"
+                          >
+                            <input
+                              type="radio"
+                              name="plan-duo-cursus-type"
+                              value={optie}
+                              checked={planDuoCursusType === optie}
+                              onChange={() => setPlanDuoCursusType(optie)}
+                              className="sr-only"
+                            />
+                            {DUO_CURSUS_TYPE_LABELS[optie]}
+                          </label>
+                        ))}
+                      </div>
                     </div>
                     {opgeslagenPartner && (
                       <p className="text-xs text-slate-500">
@@ -773,7 +806,7 @@ function InstructeurCelPaneel({
       className="fixed inset-0 z-20 flex items-end justify-center bg-black/30 p-4 sm:items-center"
       onClick={onClose}
     >
-      <div className="w-full max-w-md rounded-lg bg-white p-5 shadow-lg" onClick={(e) => e.stopPropagation()}>
+      <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-start justify-between">
           <div>
             <p className="font-semibold text-slate-800">
@@ -781,7 +814,7 @@ function InstructeurCelPaneel({
             </p>
             <p className="text-sm capitalize text-slate-500">{formattedDatum}</p>
           </div>
-          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600">
+          <button type="button" onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-600">
             ✕
           </button>
         </div>
@@ -827,7 +860,7 @@ function InstructeurCelPaneel({
                 type="button"
                 disabled={submitting}
                 onClick={handleLoskoppelen}
-                className="rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                className="rounded-full border border-red-300 px-3.5 py-1.5 text-sm font-medium text-red-600 transition-colors duration-150 hover:bg-red-50 disabled:opacity-50"
               >
                 Instructeur loskoppelen
               </button>
@@ -981,23 +1014,24 @@ export function AdminBeschikbaarheid() {
 
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-semibold text-brand-blue-dark">Rooster</h1>
+      <h1 className="mb-1 text-2xl font-bold tracking-tight text-brand-blue-dark">Rooster</h1>
+      <p className="mb-6 text-sm text-slate-500">Klik op een dag om in te plannen, te verzetten of te annuleren.</p>
 
-      <div className="mb-4 flex items-center justify-between">
+      <div className="card mb-6 flex items-center justify-between px-3 py-2.5">
         <button
           type="button"
           onClick={() => shiftWeek(-1)}
-          className="rounded-full px-3 py-1 text-xl text-brand-blue hover:bg-brand-blue-light/20"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-lg text-brand-blue transition-colors duration-150 hover:bg-brand-blue-light/20 active:scale-95"
         >
           ‹
         </button>
-        <span className="text-lg font-semibold text-slate-800">
+        <span className="text-base font-semibold text-slate-800">
           Week {weekNummer}, {dagen[0].getFullYear()}
         </span>
         <button
           type="button"
           onClick={() => shiftWeek(1)}
-          className="rounded-full px-3 py-1 text-xl text-brand-blue hover:bg-brand-blue-light/20"
+          className="flex h-9 w-9 items-center justify-center rounded-full text-lg text-brand-blue transition-colors duration-150 hover:bg-brand-blue-light/20 active:scale-95"
         >
           ›
         </button>
@@ -1006,10 +1040,13 @@ export function AdminBeschikbaarheid() {
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
       {loading ? (
-        <p className="text-slate-500">Laden...</p>
+        <div className="flex items-center gap-2 py-8 text-slate-400">
+          <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-brand-blue" />
+          Laden...
+        </div>
       ) : (
         <>
-        <h2 className="mb-3 text-lg font-semibold text-slate-800">Beschikbaarheid van cursisten</h2>
+        <h2 className="mb-3 text-base font-semibold text-slate-800">Beschikbaarheid van cursisten</h2>
 
         <input
           type="text"
@@ -1019,14 +1056,14 @@ export function AdminBeschikbaarheid() {
           className="input mb-4 max-w-sm"
         />
 
-        <div className="mb-8 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <div className="card mb-8 overflow-x-auto">
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="bg-slate-50 text-slate-600">
-                <th className="sticky left-0 z-10 min-w-[160px] bg-slate-50 px-3 py-2 text-left">Cursist</th>
+                <th className="sticky left-0 z-10 min-w-[160px] rounded-tl-2xl bg-slate-50 px-3 py-2.5 text-left">Cursist</th>
                 {dagen.map((dag, i) => (
-                  <th key={i} className="min-w-[120px] px-2 py-2 text-left">
-                    <div className="uppercase">{DAG_NAMEN[i]}</div>
+                  <th key={i} className="min-w-[110px] px-2 py-2.5 text-left">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{DAG_NAMEN[i]}</div>
                     <div className="font-normal text-slate-400">
                       {dag.getDate()} {dag.toLocaleDateString('nl-NL', { month: 'short' })}
                     </div>
@@ -1036,7 +1073,7 @@ export function AdminBeschikbaarheid() {
             </thead>
             <tbody>
               {gefilterdeCursisten.map((cursist) => (
-                <tr key={cursist.id} className="border-t border-slate-100">
+                <tr key={cursist.id} className="border-t border-slate-100 transition-colors hover:bg-slate-50/60">
                   <td className="sticky left-0 z-10 bg-white px-3 py-2 font-medium text-slate-800">
                     {cursist.voornaam} {cursist.achternaam}
                   </td>
@@ -1048,52 +1085,59 @@ export function AdminBeschikbaarheid() {
                       <td
                         key={datum}
                         onClick={() => openCel(cursist, datum)}
-                        className="cursor-pointer px-2 py-2 align-top hover:bg-brand-blue-light/10"
+                        className="cursor-pointer px-1.5 py-1.5 align-top"
                       >
                         {l ? (
                           <div
-                            className={`rounded px-2 py-1 text-xs font-medium ${
+                            className={`rounded-lg px-2 py-1.5 text-xs font-semibold leading-snug shadow-sm transition-transform duration-150 hover:scale-[1.03] ${
                               l.status === 'gepland'
                                 ? DISCIPLINE_BADGE_CLASSES[l.discipline]
                                 : l.status === 'verzet'
-                                  ? 'bg-brand-yellow/60 text-brand-blue-dark line-through'
-                                  : 'bg-red-100 text-red-700 line-through'
+                                  ? 'bg-status-wachtend-bg text-status-wachtend line-through'
+                                  : 'bg-status-geannuleerd-bg text-status-geannuleerd line-through'
                             }`}
                           >
-                            <div>
-                              {l.starttijd.slice(0, 5)}-{l.eindtijd.slice(0, 5)}
-                              {l.soort === 'duo_cursus' &&
-                                ` (Duo${l.duo_cursus_type ? ` ${DUO_CURSUS_TYPE_SHORT_LABELS[l.duo_cursus_type]}` : ''})`}
+                            <div className="flex items-center justify-between gap-1">
+                              <span>
+                                {l.starttijd.slice(0, 5)}-{l.eindtijd.slice(0, 5)}
+                              </span>
+                              {l.soort === 'duo_cursus' && (
+                                <span className="text-[10px] font-normal opacity-80">
+                                  Duo{l.duo_cursus_type ? ` ${DUO_CURSUS_TYPE_SHORT_LABELS[l.duo_cursus_type]}` : ''}
+                                </span>
+                              )}
                             </div>
-                            <div className="text-[10px] opacity-90">{DISCIPLINE_LABELS[l.discipline]}</div>
-                            <div className="text-[10px] opacity-90">
-                              {l.instructeur_id
-                                ? '✓ instructeur'
-                                : l.instructeur_aanvraag_id
-                                  ? '⏳ aanvraag'
-                                  : '✕ geen instructeur'}
+                            <div className="mt-0.5 flex items-center justify-between gap-1 text-[10px] font-normal opacity-90">
+                              <span>{DISCIPLINE_LABELS[l.discipline]}</span>
+                              <InstructeurStatusIcon les={l} />
                             </div>
                           </div>
                         ) : b ? (
-                          <span
-                            className={`text-xs font-medium ${
-                              b.type === 'hele_dag_onbeschikbaar' ? 'text-red-500' : 'text-green-600'
+                          <div
+                            className={`rounded-lg px-2 py-1.5 text-xs font-medium leading-snug ${
+                              b.type === 'hele_dag_onbeschikbaar' ? 'bg-status-geannuleerd-bg text-status-geannuleerd' : 'bg-status-bevestigd-bg text-status-bevestigd'
                             }`}
                           >
-                            {b.type === 'tijdvak'
-                              ? `${b.starttijd?.slice(0, 5)}-${b.eindtijd?.slice(0, 5)}`
-                              : BESCHIKBAAR_LABELS[b.type]}
-                            {b.soort === 'duo_cursus' &&
-                              ` (Duo${b.duo_cursus_type ? ` ${DUO_CURSUS_TYPE_SHORT_LABELS[b.duo_cursus_type]}` : ''})`}
+                            <div className="flex items-center justify-between gap-1">
+                              <span>
+                                {b.type === 'tijdvak'
+                                  ? `${b.starttijd?.slice(0, 5)}-${b.eindtijd?.slice(0, 5)}`
+                                  : BESCHIKBAAR_LABELS[b.type]}
+                              </span>
+                              {b.soort === 'duo_cursus' && (
+                                <span className="text-[10px] font-normal opacity-80">
+                                  Duo{b.duo_cursus_type ? ` ${DUO_CURSUS_TYPE_SHORT_LABELS[b.duo_cursus_type]}` : ''}
+                                </span>
+                              )}
+                            </div>
                             {b.type !== 'hele_dag_onbeschikbaar' && (
-                              <>
-                                <br />
+                              <div className="mt-0.5 text-[10px] font-normal opacity-90">
                                 {DISCIPLINE_LABELS[b.discipline]}
-                              </>
+                              </div>
                             )}
-                          </span>
+                          </div>
                         ) : (
-                          <span className="text-xs text-slate-300">–</span>
+                          <span className="flex h-full min-h-[2.25rem] items-center justify-center text-slate-200">–</span>
                         )}
                       </td>
                     )
@@ -1111,7 +1155,7 @@ export function AdminBeschikbaarheid() {
           </table>
         </div>
 
-        <h2 className="mb-3 text-lg font-semibold text-slate-800">Beschikbaarheid van instructeurs</h2>
+        <h2 className="mb-3 text-base font-semibold text-slate-800">Beschikbaarheid van instructeurs</h2>
 
         <input
           type="text"
@@ -1121,14 +1165,14 @@ export function AdminBeschikbaarheid() {
           className="input mb-4 max-w-sm"
         />
 
-        <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+        <div className="card overflow-x-auto">
           <table className="w-full border-collapse text-sm">
             <thead>
               <tr className="bg-slate-50 text-slate-600">
-                <th className="sticky left-0 z-10 min-w-[160px] bg-slate-50 px-3 py-2 text-left">Instructeur</th>
+                <th className="sticky left-0 z-10 min-w-[160px] rounded-tl-2xl bg-slate-50 px-3 py-2.5 text-left">Instructeur</th>
                 {dagen.map((dag, i) => (
-                  <th key={i} className="min-w-[120px] px-2 py-2 text-left">
-                    <div className="uppercase">{DAG_NAMEN[i]}</div>
+                  <th key={i} className="min-w-[110px] px-2 py-2.5 text-left">
+                    <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">{DAG_NAMEN[i]}</div>
                     <div className="font-normal text-slate-400">
                       {dag.getDate()} {dag.toLocaleDateString('nl-NL', { month: 'short' })}
                     </div>
@@ -1138,7 +1182,7 @@ export function AdminBeschikbaarheid() {
             </thead>
             <tbody>
               {gefilterdeInstructeurs.map((instructeur) => (
-                <tr key={instructeur.id} className="border-t border-slate-100">
+                <tr key={instructeur.id} className="border-t border-slate-100 transition-colors hover:bg-slate-50/60">
                   <td className="sticky left-0 z-10 bg-white px-3 py-2 font-medium text-slate-800">
                     {instructeur.voornaam} {instructeur.achternaam}
                   </td>
@@ -1150,35 +1194,35 @@ export function AdminBeschikbaarheid() {
                       <td
                         key={datum}
                         onClick={() => openInstructeurCel(instructeur, datum)}
-                        className="cursor-pointer px-2 py-2 align-top hover:bg-brand-blue-light/10"
+                        className="cursor-pointer px-1.5 py-1.5 align-top"
                       >
                         {l ? (
                           <div
-                            className={`rounded px-2 py-1 text-xs font-medium ${
+                            className={`rounded-lg px-2 py-1.5 text-xs font-semibold leading-snug shadow-sm transition-transform duration-150 hover:scale-[1.03] ${
                               l.status === 'gepland'
                                 ? DISCIPLINE_BADGE_CLASSES[l.discipline]
                                 : l.status === 'verzet'
-                                  ? 'bg-brand-yellow/60 text-brand-blue-dark line-through'
-                                  : 'bg-red-100 text-red-700 line-through'
+                                  ? 'bg-status-wachtend-bg text-status-wachtend line-through'
+                                  : 'bg-status-geannuleerd-bg text-status-geannuleerd line-through'
                             }`}
                           >
                             <div>
                               {l.starttijd.slice(0, 5)}-{l.eindtijd.slice(0, 5)}
                             </div>
-                            <div className="text-[10px] opacity-90">{DISCIPLINE_LABELS[l.discipline]}</div>
+                            <div className="mt-0.5 text-[10px] font-normal opacity-90">{DISCIPLINE_LABELS[l.discipline]}</div>
                           </div>
                         ) : b ? (
-                          <span
-                            className={`text-xs font-medium ${
-                              b.type === 'hele_dag_onbeschikbaar' ? 'text-red-500' : 'text-green-600'
+                          <div
+                            className={`rounded-lg px-2 py-1.5 text-xs font-medium leading-snug ${
+                              b.type === 'hele_dag_onbeschikbaar' ? 'bg-status-geannuleerd-bg text-status-geannuleerd' : 'bg-status-bevestigd-bg text-status-bevestigd'
                             }`}
                           >
                             {b.type === 'tijdvak'
                               ? `${b.starttijd?.slice(0, 5)}-${b.eindtijd?.slice(0, 5)}`
                               : BESCHIKBAAR_LABELS[b.type]}
-                          </span>
+                          </div>
                         ) : (
-                          <span className="text-xs text-slate-300">–</span>
+                          <span className="flex h-full min-h-[2.25rem] items-center justify-center text-slate-200">–</span>
                         )}
                       </td>
                     )

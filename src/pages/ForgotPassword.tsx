@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { CheckIcon } from '../components/icons'
 
 export function ForgotPassword() {
   const [email, setEmail] = useState('')
@@ -25,15 +26,21 @@ export function ForgotPassword() {
 
   return (
     <div className="mx-auto max-w-md">
-      <h1 className="mb-6 text-2xl font-semibold text-brand-blue-dark">Wachtwoord vergeten</h1>
+      <h1 className="mb-1 text-2xl font-bold tracking-tight text-brand-blue-dark">Wachtwoord vergeten</h1>
+      <p className="mb-6 text-sm text-slate-500">Geen paniek — we sturen je een link om een nieuwe in te stellen.</p>
 
       {verzonden ? (
-        <div className="rounded-md bg-green-50 p-4 text-green-800">
-          Als dit e-mailadres bekend is, ontvang je binnen enkele minuten een e-mail met een link om een nieuw
-          wachtwoord in te stellen. Geen mail ontvangen? Controleer ook je spamfolder.
+        <div className="card flex items-start gap-3 p-5">
+          <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-status-bevestigd-bg text-status-bevestigd">
+            <CheckIcon className="h-4.5 w-4.5" />
+          </span>
+          <p className="text-slate-700">
+            Als dit e-mailadres bekend is, ontvang je binnen enkele minuten een e-mail met een link om een nieuw
+            wachtwoord in te stellen. Geen mail ontvangen? Controleer ook je spamfolder.
+          </p>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="card space-y-4 p-5">
           <p className="text-sm text-slate-600">
             Vul je e-mailadres in. Als hier een account bekend is, sturen we een link om een nieuw wachtwoord in te
             stellen.
