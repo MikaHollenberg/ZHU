@@ -200,6 +200,7 @@ function CelPaneel({
   const [error, setError] = useState<string | null>(null)
   const [instructeurKeuze, setInstructeurKeuze] = useState(les?.instructeur_id ?? '')
   const [instructeurOpslaan, setInstructeurOpslaan] = useState(false)
+  const [aanvraagOpslaan, setAanvraagOpslaan] = useState(false)
   const [planDiscipline, setPlanDiscipline] = useState<Discipline>(beschikbaarheid?.discipline ?? 'polyvalk')
   const [lesDiscipline, setLesDiscipline] = useState<Discipline>(les?.discipline ?? 'polyvalk')
   const [disciplineOpslaan, setDisciplineOpslaan] = useState(false)
@@ -376,9 +377,41 @@ function CelPaneel({
     setError(null)
     const { error: updateError } = await supabase
       .from('lessen')
-      .update({ instructeur_id: instructeurKeuze || null })
+      .update({ instructeur_id: instructeurKeuze || null, instructeur_aanvraag_id: null })
       .eq('id', les.id)
     setInstructeurOpslaan(false)
+    if (updateError) {
+      setError(updateError.message)
+      return
+    }
+    onChanged()
+  }
+
+  const handleAanvraagGoedkeuren = async () => {
+    if (!les || !les.instructeur_aanvraag_id) return
+    setAanvraagOpslaan(true)
+    setError(null)
+    const { error: updateError } = await supabase
+      .from('lessen')
+      .update({ instructeur_id: les.instructeur_aanvraag_id, instructeur_aanvraag_id: null })
+      .eq('id', les.id)
+    setAanvraagOpslaan(false)
+    if (updateError) {
+      setError(updateError.message)
+      return
+    }
+    onChanged()
+  }
+
+  const handleAanvraagAfwijzen = async () => {
+    if (!les) return
+    setAanvraagOpslaan(true)
+    setError(null)
+    const { error: updateError } = await supabase
+      .from('lessen')
+      .update({ instructeur_aanvraag_id: null })
+      .eq('id', les.id)
+    setAanvraagOpslaan(false)
     if (updateError) {
       setError(updateError.message)
       return
@@ -459,6 +492,36 @@ function CelPaneel({
                 </button>
               </div>
             </label>
+
+            {les.instructeur_aanvraag_id &&
+              (() => {
+                const aanvrager = instructeurs.find((i) => i.id === les.instructeur_aanvraag_id)
+                return (
+                  <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 p-3">
+                    <p className="mb-2 text-sm font-medium text-amber-800">
+                      Aanvraag van {aanvrager ? `${aanvrager.voornaam} ${aanvrager.achternaam}` : 'een instructeur'}
+                    </p>
+                    <div className="flex gap-3">
+                      <button
+                        type="button"
+                        disabled={aanvraagOpslaan}
+                        onClick={handleAanvraagGoedkeuren}
+                        className="btn-primary"
+                      >
+                        {aanvraagOpslaan ? 'Bezig...' : 'Goedkeuren'}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={aanvraagOpslaan}
+                        onClick={handleAanvraagAfwijzen}
+                        className="text-sm text-red-600 hover:underline"
+                      >
+                        Afwijzen
+                      </button>
+                    </div>
+                  </div>
+                )
+              })()}
 
             <label className="mb-3 block">
               <span className="mb-1 block text-sm font-medium text-slate-700">Instructeur</span>
@@ -1003,6 +1066,13 @@ export function AdminBeschikbaarheid() {
                                 ` (Duo${l.duo_cursus_type ? ` ${DUO_CURSUS_TYPE_SHORT_LABELS[l.duo_cursus_type]}` : ''})`}
                             </div>
                             <div className="text-[10px] opacity-90">{DISCIPLINE_LABELS[l.discipline]}</div>
+                            <div className="text-[10px] opacity-90">
+                              {l.instructeur_id
+                                ? '✓ instructeur'
+                                : l.instructeur_aanvraag_id
+                                  ? '⏳ aanvraag'
+                                  : '✕ geen instructeur'}
+                            </div>
                           </div>
                         ) : b ? (
                           <span

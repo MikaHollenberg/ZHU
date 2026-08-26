@@ -22,6 +22,7 @@ export function InstructeurLessen() {
   const { user, profile } = useAuth()
   const goedgekeurd = profile?.instructeur_goedgekeurd ?? false
   const [openstaand, setOpenstaand] = useState<Les[]>([])
+  const [aanvragen, setAanvragen] = useState<Les[]>([])
   const [eigen, setEigen] = useState<Les[]>([])
   const [cursistNamen, setCursistNamen] = useState<Record<string, CursistNaam>>({})
   const [loading, setLoading] = useState(true)
@@ -34,13 +35,20 @@ export function InstructeurLessen() {
     setError(null)
     const vandaag = new Date().toISOString().slice(0, 10)
 
-    const [openRes, eigenRes, namenRes] = await Promise.all([
+    const [openRes, aanvraagRes, eigenRes, namenRes] = await Promise.all([
       supabase
         .from('lessen')
         .select('*')
         .is('instructeur_id', null)
+        .is('instructeur_aanvraag_id', null)
         .eq('status', 'gepland')
         .gte('datum', vandaag)
+        .order('datum', { ascending: true }),
+      supabase
+        .from('lessen')
+        .select('*')
+        .eq('instructeur_aanvraag_id', user.id)
+        .eq('status', 'gepland')
         .order('datum', { ascending: true }),
       supabase
         .from('lessen')
@@ -52,6 +60,7 @@ export function InstructeurLessen() {
 
     if (openRes.error) setError(openRes.error.message)
     setOpenstaand(openRes.data ?? [])
+    setAanvragen(aanvraagRes.data ?? [])
     setEigen(eigenRes.data ?? [])
 
     const namenMap: Record<string, CursistNaam> = {}
@@ -145,6 +154,38 @@ export function InstructeurLessen() {
                     className="text-sm text-red-600 hover:underline"
                   >
                     Afmelden
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <h2 className="mb-3 text-lg font-semibold text-slate-800">Mijn aanvragen (wacht op goedkeuring)</h2>
+          {aanvragen.length === 0 ? (
+            <p className="mb-8 text-slate-500">Je hebt geen openstaande aanvragen.</p>
+          ) : (
+            <ul className="mb-8 space-y-2">
+              {aanvragen.map((les) => (
+                <li
+                  key={les.id}
+                  className="flex items-center justify-between rounded-md border border-amber-200 bg-amber-50 px-4 py-3"
+                >
+                  <div>
+                    <p className="font-medium capitalize text-slate-800">{formatDatum(les.datum)}</p>
+                    <p className="text-sm text-slate-500">
+                      {les.starttijd.slice(0, 5)} - {les.eindtijd.slice(0, 5)} · Wacht op goedkeuring van de beheerder
+                    </p>
+                    <div className="mt-1">
+                      <DisciplineBadge discipline={les.discipline} />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={submitting === les.id}
+                    onClick={() => handleAfmelden(les.id)}
+                    className="text-sm text-red-600 hover:underline"
+                  >
+                    Intrekken
                   </button>
                 </li>
               ))}

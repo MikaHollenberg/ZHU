@@ -18,6 +18,7 @@ export interface Les {
   soort: LesSoort
   tweede_persoon_id: string | null
   instructeur_id: string | null
+  instructeur_aanvraag_id: string | null
   discipline: Discipline
   duo_cursus_type: DuoCursusType | null
   aangemaakt_op: string

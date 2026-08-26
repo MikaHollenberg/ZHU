@@ -280,6 +280,7 @@ create table public.lessen (
   soort les_soort not null default 'priveles',
   tweede_persoon_id uuid references public.tweede_persoon (id),
   instructeur_id uuid references public.profiles (id),
+  instructeur_aanvraag_id uuid references public.profiles (id),
   discipline discipline not null default 'polyvalk',
   duo_cursus_type duo_cursus_type,
   aangemaakt_op timestamptz not null default now(),
@@ -351,11 +352,14 @@ begin
   if v_les.instructeur_id is not null then
     raise exception 'Deze les heeft al een instructeur';
   end if;
+  if v_les.instructeur_aanvraag_id is not null then
+    raise exception 'Deze les heeft al een aanvraag in behandeling';
+  end if;
   if v_les.status <> 'gepland' then
     raise exception 'Deze les staat niet meer open';
   end if;
 
-  update public.lessen set instructeur_id = auth.uid() where id = p_les_id
+  update public.lessen set instructeur_aanvraag_id = auth.uid() where id = p_les_id
   returning * into v_les;
 
   return v_les;
@@ -376,8 +380,10 @@ begin
   end if;
 
   update public.lessen
-  set instructeur_id = null
-  where id = p_les_id and instructeur_id = auth.uid()
+  set
+    instructeur_id = case when instructeur_id = auth.uid() then null else instructeur_id end,
+    instructeur_aanvraag_id = case when instructeur_aanvraag_id = auth.uid() then null else instructeur_aanvraag_id end
+  where id = p_les_id and (instructeur_id = auth.uid() or instructeur_aanvraag_id = auth.uid())
   returning * into v_les;
 
   if not found then
