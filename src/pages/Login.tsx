@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
 export function Login() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const wachtwoordGewijzigd = Boolean((location.state as { wachtwoordGewijzigd?: boolean } | null)?.wachtwoordGewijzigd)
   const [email, setEmail] = useState('')
   const [wachtwoord, setWachtwoord] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -33,6 +35,12 @@ export function Login() {
   return (
     <div className="mx-auto max-w-md">
       <h1 className="mb-6 text-2xl font-semibold text-brand-blue-dark">Inloggen</h1>
+
+      {wachtwoordGewijzigd && (
+        <p className="mb-4 rounded-md bg-green-50 p-3 text-sm text-green-800">
+          Je wachtwoord is gewijzigd. Log in met je nieuwe wachtwoord.
+        </p>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <label className="block">
@@ -65,6 +73,12 @@ export function Login() {
       </form>
 
       <p className="mt-4 text-sm text-slate-600">
+        <Link to="/wachtwoord-vergeten" className="font-medium text-brand-blue-dark underline">
+          Wachtwoord vergeten?
+        </Link>
+      </p>
+
+      <p className="mt-2 text-sm text-slate-600">
         Nog geen account?{' '}
         <Link to="/registreren" className="font-medium text-brand-blue-dark underline">
           Meld je hier aan

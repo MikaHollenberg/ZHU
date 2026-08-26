@@ -27,7 +27,7 @@ export function Register() {
     setError(null)
     setSubmitting(true)
 
-    const { error: signUpError } = await supabase.auth.signUp({
+    const { data, error: signUpError } = await supabase.auth.signUp({
       email: form.email,
       password: form.wachtwoord,
       options: {
@@ -41,13 +41,23 @@ export function Register() {
       },
     })
 
-    setSubmitting(false)
-
     if (signUpError) {
+      setSubmitting(false)
       setError(signUpError.message)
       return
     }
 
+    // Supabase geeft bij een al bestaand e-mailadres geen foutmelding terug
+    // (dat zou account-enumeratie mogelijk maken), maar wel een lege
+    // identities-array. Stuur in dat geval in plaats daarvan een
+    // wachtwoord-reset-mail — de gebruiker ziet hoe dan ook dezelfde melding.
+    if (data.user && data.user.identities && data.user.identities.length === 0) {
+      await supabase.auth.resetPasswordForEmail(form.email, {
+        redirectTo: `${window.location.origin}/wachtwoord-instellen`,
+      })
+    }
+
+    setSubmitting(false)
     setSuccess(true)
     setTimeout(() => navigate('/login'), 2500)
   }

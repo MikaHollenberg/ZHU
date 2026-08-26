@@ -5,6 +5,10 @@ import { RequireRole } from './components/RequireRole'
 import { Layout } from './components/Layout'
 import { Login } from './pages/Login'
 import { Register } from './pages/Register'
+import { ForgotPassword } from './pages/ForgotPassword'
+import { ResetPassword } from './pages/ResetPassword'
+import { AlgemeneVoorwaarden } from './pages/AlgemeneVoorwaarden'
+import { Privacybeleid } from './pages/Privacybeleid'
 import { Profile } from './pages/Profile'
 import { Home } from './pages/Home'
 import { Availability } from './pages/Availability'
@@ -22,6 +26,10 @@ function App() {
           <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/registreren" element={<Register />} />
+            <Route path="/wachtwoord-vergeten" element={<ForgotPassword />} />
+            <Route path="/wachtwoord-instellen" element={<ResetPassword />} />
+            <Route path="/algemene-voorwaarden" element={<AlgemeneVoorwaarden />} />
+            <Route path="/privacybeleid" element={<Privacybeleid />} />
             <Route
               path="/"
               element={
