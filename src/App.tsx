@@ -16,7 +16,9 @@ import { MyLessons } from './pages/MyLessons'
 import { AdminCursisten } from './pages/admin/Cursisten'
 import { AdminBeschikbaarheid } from './pages/admin/BeschikbaarheidOverzicht'
 import { AdminLabels } from './pages/admin/Labels'
+import { AdminStatistieken } from './pages/admin/Statistieken'
 import { InstructeurLessen } from './pages/InstructeurLessen'
+import { InstructeurStatistieken } from './pages/InstructeurStatistieken'
 
 function App() {
   return (
@@ -73,6 +75,16 @@ function App() {
               }
             />
             <Route
+              path="/statistieken"
+              element={
+                <ProtectedRoute>
+                  <RequireRole role="instructeur">
+                    <InstructeurStatistieken />
+                  </RequireRole>
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/beheer/cursisten"
               element={
                 <ProtectedRoute>
@@ -98,6 +110,16 @@ function App() {
                 <ProtectedRoute>
                   <RequireRole role="beheerder">
                     <AdminLabels />
+                  </RequireRole>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/beheer/statistieken"
+              element={
+                <ProtectedRoute>
+                  <RequireRole role="beheerder">
+                    <AdminStatistieken />
                   </RequireRole>
                 </ProtectedRoute>
               }

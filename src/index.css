@@ -9,6 +9,11 @@
   --color-brand-yellow: #f6cf73;
   --color-brand-yellow-dark: #e8b94f;
 
+  /* Zijbalk — donkere merkkleur voor het grote vlak van de navigatiebalk,
+     apart van de brand-blue-tinten die op lichte achtergronden gebruikt worden. */
+  --color-sidebar: #123c53;
+  --color-sidebar-deep: #0c2d3f;
+
   /* Disciplines (boottypes) — centrale kleurcodering, overal hetzelfde. */
   --color-discipline-polyvalk: #1e3a8a;
   --color-discipline-fox22: #7dd3fc;

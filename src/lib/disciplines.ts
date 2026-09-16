@@ -16,3 +16,11 @@ export const DISCIPLINE_BADGE_CLASSES: Record<Discipline, string> = {
 }
 
 export const DISCIPLINES = Object.keys(DISCIPLINE_LABELS) as Discipline[]
+
+// Alleen de achtergrondkleur (geen tekstkleur) — voor balkjes/grafiekjes
+// waar de kleur zelf de dataviz is, niet gecombineerd met tekst erop.
+export const DISCIPLINE_BAR_CLASSES: Record<Discipline, string> = {
+  polyvalk: 'bg-discipline-polyvalk',
+  fox22: 'bg-discipline-fox22',
+  windsurf: 'bg-discipline-windsurf',
+}

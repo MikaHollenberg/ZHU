@@ -38,7 +38,7 @@ export function Home() {
   }, [user, profile])
 
   return (
-    <div>
+    <div className="mx-auto max-w-3xl">
       <h1 className="mb-2 text-2xl font-bold tracking-tight text-brand-blue-dark">
         Welkom{profile ? `, ${profile.voornaam}` : ''}
       </h1>
