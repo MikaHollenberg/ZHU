@@ -37,8 +37,8 @@ export function ResetPassword() {
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
-    if (wachtwoord.length < 6) {
-      setError('Het wachtwoord moet minimaal 6 tekens lang zijn.')
+    if (wachtwoord.length < 8) {
+      setError('Het wachtwoord moet minimaal 8 tekens lang zijn.')
       return
     }
     if (wachtwoord !== wachtwoordHerhaal) {
@@ -89,13 +89,13 @@ export function ResetPassword() {
   return (
     <div className="mx-auto max-w-md">
       <h1 className="mb-1 text-2xl font-bold tracking-tight text-brand-blue-dark">Nieuw wachtwoord instellen</h1>
-      <p className="mb-6 text-sm text-slate-500">Kies een nieuw wachtwoord van minimaal 6 tekens.</p>
+      <p className="mb-6 text-sm text-slate-500">Kies een nieuw wachtwoord van minimaal 8 tekens.</p>
       <form onSubmit={handleSubmit} className="card space-y-4 p-5">
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-slate-700">Nieuw wachtwoord</span>
           <input
             required
-            minLength={6}
+            minLength={8}
             type="password"
             value={wachtwoord}
             onChange={(e) => setWachtwoord(e.target.value)}

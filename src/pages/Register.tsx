@@ -26,6 +26,12 @@ export function Register() {
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
     setError(null)
+
+    if (form.wachtwoord.length < 8) {
+      setError('Het wachtwoord moet minimaal 8 tekens lang zijn.')
+      return
+    }
+
     setSubmitting(true)
 
     const { data, error: signUpError } = await supabase.auth.signUp({
@@ -114,12 +120,13 @@ export function Register() {
           <Field label="Wachtwoord" required>
             <input
               required
-              minLength={6}
+              minLength={8}
               type="password"
               value={form.wachtwoord}
               onChange={handleChange('wachtwoord')}
               className="input"
             />
+            <p className="mt-1 text-xs text-slate-500">Minimaal 8 tekens.</p>
           </Field>
 
           <Field label="Telefoonnummer">
