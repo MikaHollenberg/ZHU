@@ -200,11 +200,13 @@ export function Layout({ children }: { children: ReactNode }) {
 
       {/* Desktop zijbalk */}
       <aside className="sticky top-0 hidden h-screen w-60 flex-shrink-0 flex-col gap-5 bg-gradient-to-b from-sidebar to-sidebar-deep px-3.5 py-5 sm:flex">
-        <Link to="/" className="flex items-center gap-2.5 border-b border-white/10 px-2 pb-4 text-white">
-          <img src="/logo-mark.png" alt="" className="h-7 w-7 flex-shrink-0 object-contain" />
+        <Link to="/" className="flex items-center gap-3 border-b-2 border-brand-blue-light/30 px-2 pb-4 text-white">
+          <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-white shadow-[0_2px_8px_rgba(0,0,0,0.25)]">
+            <img src="/logo-mark.png" alt="" className="h-7 w-7 object-contain" />
+          </span>
           <span className="text-sm font-semibold leading-tight">
             ZHU Zeilles
-            <span className="block text-[10px] font-medium text-brand-blue-light/70">Priveles-portal</span>
+            <span className="block text-[10px] font-medium text-brand-blue-light/70">ZeilPortal</span>
           </span>
         </Link>
 
