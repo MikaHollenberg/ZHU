@@ -4,6 +4,7 @@ import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { PAGE_TITLES } from '../lib/pageTitles'
+import { usePendingAanvragen } from '../lib/usePendingAanvragen'
 import {
   BookIcon,
   CalendarIcon,
@@ -60,7 +61,7 @@ const desktopNavClass = ({ isActive }: { isActive: boolean }) =>
 
 const mobileTabClass = ({ isActive }: { isActive: boolean }) =>
   `relative flex flex-1 flex-col items-center gap-0.5 rounded-xl px-1 py-1.5 text-[10.5px] font-semibold transition-colors duration-150 ${
-    isActive ? 'text-brand-blue' : 'text-slate-400 hover:text-brand-blue-dark'
+    isActive ? 'bg-brand-blue text-white' : 'text-brand-blue-light/60 hover:text-white'
   }`
 
 function SkipLink() {
@@ -90,7 +91,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const navigate = useNavigate()
   const location = useLocation()
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false)
-  const [pendingCount, setPendingCount] = useState(0)
+  const pendingCount = usePendingAanvragen(user, profile)
   const avatarButtonRef = useRef<HTMLButtonElement>(null)
   const avatarMenuRef = useRef<HTMLDivElement>(null)
 
@@ -105,39 +106,6 @@ export function Layout({ children }: { children: ReactNode }) {
     const naam = PAGE_TITLES[location.pathname]
     document.title = naam ? `${naam} — ZHU Zeilles` : 'ZHU Zeilles'
   }, [location.pathname])
-
-  // Teller voor "wacht op actie" (#5): beheerder ziet openstaande instructeur-
-  // aanvragen, instructeur ziet zijn eigen aanvragen die nog goedkeuring nodig hebben.
-  useEffect(() => {
-    if (!user || !profile || profile.gearchiveerd) {
-      setPendingCount(0)
-      return
-    }
-    let cancelled = false
-    const fetchPending = async () => {
-      if (profile.rol === 'beheerder') {
-        const { count } = await supabase
-          .from('lessen')
-          .select('id', { count: 'exact', head: true })
-          .not('instructeur_aanvraag_id', 'is', null)
-          .is('instructeur_id', null)
-        if (!cancelled) setPendingCount(count ?? 0)
-      } else if (profile.rol === 'instructeur') {
-        const { count } = await supabase
-          .from('lessen')
-          .select('id', { count: 'exact', head: true })
-          .eq('instructeur_aanvraag_id', user.id)
-          .is('instructeur_id', null)
-        if (!cancelled) setPendingCount(count ?? 0)
-      } else {
-        setPendingCount(0)
-      }
-    }
-    fetchPending()
-    return () => {
-      cancelled = true
-    }
-  }, [user, profile, location.pathname])
 
   // Mobiel accountmenu (#3): Escape sluit het en zet focus terug op de knop,
   // en een klik buiten het menu sluit het ook.
@@ -259,10 +227,12 @@ export function Layout({ children }: { children: ReactNode }) {
       </aside>
 
       {/* Mobiele topbalk — logo + accountmenu (navigatie zelf staat in de onderbalk) */}
-      <header className="sticky top-0 z-20 border-b border-brand-blue-light/40 bg-white shadow-sm sm:hidden">
+      <header className="sticky top-0 z-20 border-b border-brand-blue-light/20 bg-sidebar shadow-sm sm:hidden">
         <div className="flex items-center justify-between px-4 py-3">
-          <Link to="/" className="flex items-center gap-2 text-lg font-semibold text-brand-blue-dark">
-            <img src="/logo-mark.png" alt="" className="h-8 w-8 object-contain" />
+          <Link to="/" className="flex items-center gap-2 text-lg font-semibold text-white">
+            <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-white shadow-[0_2px_6px_rgba(0,0,0,0.25)]">
+              <img src="/logo-mark.png" alt="" className="h-6 w-6 object-contain" />
+            </span>
             ZHU Zeilles
           </Link>
           {profile && (
@@ -311,7 +281,7 @@ export function Layout({ children }: { children: ReactNode }) {
       {navItems.length > 0 && (
         <nav
           aria-label="Hoofdnavigatie"
-          className="fixed inset-x-0 bottom-0 z-20 flex items-stretch justify-around border-t border-brand-blue-light/40 bg-white px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5 shadow-[0_-2px_12px_rgba(15,55,77,0.08)] sm:hidden"
+          className="fixed inset-x-0 bottom-0 z-20 flex items-stretch justify-around border-t border-brand-blue-light/20 bg-sidebar px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5 shadow-[0_-2px_12px_rgba(0,0,0,0.25)] sm:hidden"
         >
           {navItems.map((item) => {
             const Icon = item.icon
