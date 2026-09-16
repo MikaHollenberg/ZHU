@@ -115,6 +115,10 @@ create trigger enforce_role_immutable
   before update on public.profiles
   for each row execute function public.prevent_role_escalation();
 
+-- Trigger-only functie, nooit rechtstreeks door de app aangeroepen — hoort
+-- niet als publieke RPC beschikbaar te zijn (zie 019_functie_hardening.sql).
+revoke execute on function public.prevent_role_escalation() from public, anon, authenticated;
+
 -- Automatisch een profiel aanmaken zodra iemand zich registreert via Supabase Auth.
 -- De gegevens komen uit options.data bij supabase.auth.signUp() in de app.
 create or replace function public.handle_new_user()
@@ -141,6 +145,10 @@ $$;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+-- Trigger-only functie, nooit rechtstreeks door de app aangeroepen — hoort
+-- niet als publieke RPC beschikbaar te zijn (zie 019_functie_hardening.sql).
+revoke execute on function public.handle_new_user() from public, anon, authenticated;
 
 -- ------------------------------------------------------------
 -- Tabel: tweede_persoon
@@ -427,6 +435,7 @@ create or replace function public.plan_les(
 )
 returns public.lessen
 language plpgsql
+set search_path = public
 as $$
 declare
   v_les public.lessen;
@@ -482,6 +491,7 @@ create or replace function public.verzet_les(
 )
 returns public.lessen
 language plpgsql
+set search_path = public
 as $$
 declare
   v_oude public.lessen;
@@ -533,6 +543,7 @@ create or replace function public.annuleer_les(
 )
 returns public.lessen
 language plpgsql
+set search_path = public
 as $$
 declare
   v_les public.lessen;
