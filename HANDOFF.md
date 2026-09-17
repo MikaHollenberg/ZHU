@@ -254,15 +254,20 @@ daadwerkelijk zijn uitgevoerd op het live Supabase-project, in deze volgorde:
 018_instructeur_aanvraag_goedkeuring.sql
 019_functie_hardening.sql       ← search_path vastzetten + EXECUTE intrekken
 020_functie_hardening_deel2.sql ← dode plan_les-overloads opruimen + PUBLIC-grant dicht
+021_meldingen.sql               ← notificatie-postvak voor de beheerder (zie hieronder)
 ```
 
 (Fase 1's basis-schema, vóór deze lijst, staat direct in `schema.sql` zelf.)
 
-**Alles hierboven is al uitgevoerd op het live Supabase-project.** Als je nieuwe
-databasewijzigingen maakt: voeg een nieuw doorgenummerd bestand toe (`021_...`),
-werk `schema.sql` ook bij (voor een verse installatie), en laat de gebruiker het
-in de Supabase SQL Editor draaien — plak de inhoud altijd ook direct in de chat
-(niet alleen "voer dit bestand uit"), de gebruiker kopieert liever rechtstreeks.
+**Alles hierboven is al uitgevoerd op het live Supabase-project.** Migratie 021 is
+er **rechtstreeks door Claude** op toegepast via de Supabase MCP-tool
+(`apply_migration`), niet via de gebruiker die het zelf in de SQL Editor
+draaide — dat kan dus gewoon, de tool is beschikbaar en werkt. Check daarna
+altijd `get_advisors` (type "security") om te zien of er geen nieuwe
+RLS-/EXECUTE-gaten zijn ontstaan. Ondanks dat: bij een nieuwe migratie ook
+altijd een nieuw doorgenummerd bestand toevoegen én `schema.sql` bijwerken
+(voor een verse installatie), en de SQL in de chat laten zien zodat de
+gebruiker kan meelezen wat er precies is gebeurd.
 
 Let op de `alter type ... add value` valkuil: een nieuwe enum-waarde toevoegen
 moet in een aparte transactie/los "Run"-moment vóórdat je hem in dezelfde script
@@ -322,6 +327,75 @@ die bij andermans data proberen te komen) — allemaal geweigerd.** Zie
 `Fase 2` in het auditrapport voor het script-patroon als je dit ooit opnieuw wilt
 draaien (tijdelijk `.mjs`-bestand in de project-root, direct verwijderen na de
 run, nooit committen).
+
+## E-mailnotificaties (toegevoegd 2026-09-17)
+
+Eén Edge Function, `supabase/functions/send-lesmail/index.ts`, verstuurt een
+mail via **Resend** (`https://api.resend.com/emails`) naar de cursist of
+instructeur bij vier gebeurtenissen: `les_ingepland`, `les_verzet`,
+`les_geannuleerd`, `aanvraag_goedgekeurd`. De function draait server-side
+(Deno, service-role-toegang), checkt zelf `is_beheerder()` op de aanroeper
+(zelfde regel als de RPC's), en bouwt de e-mail-HTML zelf op basis van de
+`lessen`-rij (geen losse tabel voor e-mailinhoud).
+
+- **Client-kant**: `src/lib/notificaties.ts` exporteert `stuurLesMail(event,
+  lesId)` — fire-and-forget (`.catch()`, geen `await` nodig door de caller),
+  zodat een mislukte mail de eigenlijke les-actie nooit blokkeert. Aangeroepen
+  vanuit `admin/BeschikbaarheidOverzicht.tsx` (na `plan_les`/`verzet_les`/
+  `annuleer_les`) en `Home.tsx`'s `handleGoedkeuren` (na de instructeur-
+  koppeling).
+- **Nog niet werkend**: er is nog **geen Resend-account/API-key**. Zonder
+  `RESEND_API_KEY`-secret geeft de function gewoon `200 { skipped: true }`
+  terug (geen foutmelding voor de beheerder, de les-actie werkt gewoon door)
+  — de mail wordt dan alleen niet verstuurd. Zodra de gebruiker een
+  Resend-account heeft (aanmelden, domein `zeilschooluitgeest.nl`
+  verifiëren met DNS-records, API-key aanmaken): zet `RESEND_API_KEY` en
+  optioneel `EMAIL_FROM` (bijv. `"Zeilschool Het Uitgeestermeer
+  <noreply@zeilschooluitgeest.nl>"`) bij Project Settings → Edge Functions →
+  Secrets in het Supabase-dashboard (geen MCP-tool hiervoor beschikbaar, dus
+  dit moet de gebruiker zelf doen). Test daarna één keer live (een les
+  inplannen) en check de Resend-dashboardlogs.
+- Nieuwe function opnieuw deployen: `deploy_edge_function`-MCP-tool met
+  `project_id: azdjqqbnexwnhcvbhxoq`, `name: "send-lesmail"` — geen Supabase
+  CLI nodig/geïnstalleerd op deze Mac.
+
+## Meldingen-postvak voor de beheerder (toegevoegd 2026-09-17)
+
+Los van e-mail: een **in-app postvakje** (bel-icoon met ongelezen-teller) voor
+de beheerder, zichtbaar in de desktop-zijbalk (naast het logo) en de mobiele
+topbalk (naast het accountmenu) — `src/components/MeldingenBel.tsx`, data via
+`src/lib/useMeldingen.ts` (één keer aangeroepen in `Layout.tsx`, gedeeld door
+beide bel-knoppen zodat er niet dubbel gepolld wordt; ververst elke 60s plus
+bij het openen van het paneel).
+
+- **Database**: tabel `public.meldingen` (migratie `021_meldingen.sql`) +
+  drie `SECURITY DEFINER`-triggerfuncties die er zelf rijen in zetten —
+  nooit rechtstreeks vanuit de frontend, dus geen INSERT-RLS-policy nodig
+  voor `authenticated`. Triggers op:
+  - `profiles` (na insert) → "Nieuwe registratie"
+  - `beschikbaarheid` (na insert, dus niet bij een upsert-update van een
+    bestaande dag) → "Nieuwe beschikbaarheid"
+  - `lessen` (na insert of update, onderscheiden via `TG_OP` + oude/nieuwe
+    kolomwaarden) → "Les ingepland" / "Les verzet" / "Les geannuleerd" /
+    "Instructeur meldt zich aan" (dit laatste bij een nieuwe
+    `instructeur_aanvraag_id`, dus vóór goedkeuring — de goedkeuring zelf
+    (`handleGoedkeuren`) geeft bewust géén aparte melding, de beheerder heeft
+    net zelf op "Goedkeuren" geklikt en ziet al een toast).
+  - **Live geverifieerd**: beschikbaarheid doorgegeven als cursist → een
+    rij verscheen in `meldingen` met de juiste tekst (getest via
+    `execute_sql`, geen PII geselecteerd).
+- **RLS**: alleen `is_beheerder()` mag lezen/updaten (gelezen/ongelezen
+  markeren)/verwijderen.
+- **Frontend-functionaliteit**: gelezen/ongelezen togglen, verwijderen,
+  "Alles gelezen", en klikken op een melding navigeert naar `melding.link`
+  (bijv. `/beheer/beschikbaarheid` of `/`) en markeert 'm meteen als gelezen.
+- **Niet live getest**: de bel-UI zelf is nog niet visueel bevestigd in de
+  browser — daarvoor is een beheerder-login nodig en Claude heeft alleen
+  cursist-testaccount-inloggegevens (zie "Testaccounts" hieronder). De
+  databankkant (trigger → rij in `meldingen`) is wel bevestigd te werken.
+  Log zelf even in als beheerder om de bel te zien, of geef Claude toestemming
+  om een testaccount tijdelijk naar `beheerder` te zetten en weer terug (zoals
+  eerder ook met `gearchiveerd` is gedaan).
 
 ## Wat is al gebouwd (functioneel)
 
@@ -475,15 +549,23 @@ resetten, niet met terugwerkende kracht.
 
 ## Wat nog open staat / mogelijke vervolgstappen
 
-- **SMTP-provider koppelen** (Resend/Brevo) om de e-mail-rate-limit van 2/uur op
-  te lossen — nog niet gedaan, wel aanbevolen, vraag ernaar als e-mailproblemen
-  weer ter sprake komen.
+- **Resend-account aanmaken** — de e-mailnotificatie-functie (zie boven) staat
+  klaar maar verstuurt nog niets, want er is nog geen account/API-key. Zodra
+  de gebruiker dit heeft geregeld: `RESEND_API_KEY` (en optioneel
+  `EMAIL_FROM`) als Edge Function-secret zetten in het Supabase-dashboard,
+  daarna is dit ook meteen de oplossing voor het SMTP-rate-limit-punt
+  hieronder (dezelfde provider als custom SMTP koppelen bij Authentication →
+  SMTP Settings).
+- **E-mail-rate-limit van Supabase (2/uur)** — nog niet opgelost, hangt samen
+  met het Resend-punt hierboven. Vraag ernaar als e-mailproblemen ter sprake
+  komen.
 - **Captcha (Cloudflare Turnstile)** — stappenplan is met de gebruiker
   doorgenomen maar hij wil dit voorlopig laten rusten. Niet ongevraagd oppakken.
 - **Wegwerp-testaccount opruimen** — zie hierboven.
-- **E-mailnotificaties** — bewust overgeslagen, gebruiker wilde eerst geen
-  externe e-maildienst kiezen (hangt ook samen met het SMTP-punt hierboven).
-  Vraag opnieuw als het weer ter sprake komt.
+- **Meldingen-bel visueel bevestigen** — de databankkant is live getest, de
+  UI zelf nog niet (geen beheerder-login beschikbaar in de sessie die dit
+  bouwde). Vraag de gebruiker even in te loggen, of tijdelijk een testaccount
+  naar `beheerder` te zetten.
 - De instructeur-tabel in het rooster laat de beheerder nog niet toe om een
   lesgever te koppelen aan een cel die nog GEEN les heeft (alleen aan bestaande
   lessen). Zou een logische uitbreiding zijn als de gebruiker vraagt om vanuit de

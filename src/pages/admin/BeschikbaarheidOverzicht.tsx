@@ -10,6 +10,7 @@ import type { DuoCursusType } from '../../lib/duoCursusType'
 import { DisciplineBadge } from '../../components/DisciplineBadge'
 import { CheckIcon, ClockIcon, XIcon } from '../../components/icons'
 import { Loader } from '../../components/Loader'
+import { stuurLesMail } from '../../lib/notificaties'
 import type { Beschikbaarheid, BeschikbaarheidType, LesSoort } from '../../types/availability'
 import type { Label, Les } from '../../types/lesson'
 import type { Profile } from '../../types/profile'
@@ -328,7 +329,7 @@ function CelPaneel({
     const discipline = beschikbaarheid ? beschikbaarheid.discipline : planDiscipline
     const duoCursusType = beschikbaarheidDuo ? beschikbaarheidDuo.duo_cursus_type : planDuoCursusType
 
-    const { error: rpcError } = await supabase.rpc('plan_les', {
+    const { data: nieuweLes, error: rpcError } = await supabase.rpc('plan_les', {
       p_cursist_id: cursist.id,
       p_datum: datum,
       p_starttijd: start,
@@ -345,6 +346,7 @@ function CelPaneel({
       setError(rpcError.message)
       return
     }
+    if (nieuweLes) stuurLesMail('les_ingepland', nieuweLes.id)
     onChanged()
   }
 
@@ -360,7 +362,7 @@ function CelPaneel({
     }
     setSubmitting(true)
     setError(null)
-    const { error: rpcError } = await supabase.rpc('verzet_les', {
+    const { data: verzetteLes, error: rpcError } = await supabase.rpc('verzet_les', {
       p_les_id: les.id,
       p_nieuwe_datum: nieuweDatum,
       p_nieuwe_starttijd: start,
@@ -372,6 +374,7 @@ function CelPaneel({
       setError(rpcError.message)
       return
     }
+    if (verzetteLes) stuurLesMail('les_verzet', verzetteLes.id)
     onChanged()
   }
 
@@ -383,7 +386,7 @@ function CelPaneel({
     }
     setSubmitting(true)
     setError(null)
-    const { error: rpcError } = await supabase.rpc('annuleer_les', {
+    const { data: geannuleerdeLes, error: rpcError } = await supabase.rpc('annuleer_les', {
       p_les_id: les.id,
       p_label_id: labelId,
     })
@@ -392,6 +395,7 @@ function CelPaneel({
       setError(rpcError.message)
       return
     }
+    if (geannuleerdeLes) stuurLesMail('les_geannuleerd', geannuleerdeLes.id)
     onChanged()
   }
 

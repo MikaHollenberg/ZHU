@@ -21,3 +21,18 @@ export function countdownLabel(datum: string): string {
   if (diffDagen === 1) return 'Morgen'
   return `Over ${diffDagen} dagen`
 }
+
+// "Zojuist" / "5 min geleden" / "3 uur geleden" / "gisteren" / een korte datum
+// — voor tijdstempels in de meldingen-inbox.
+export function tijdGeleden(iso: string): string {
+  const diffMs = Date.now() - new Date(iso).getTime()
+  const minuten = Math.floor(diffMs / 60_000)
+  if (minuten < 1) return 'Zojuist'
+  if (minuten < 60) return `${minuten} min geleden`
+  const uren = Math.floor(minuten / 60)
+  if (uren < 24) return `${uren} uur geleden`
+  const dagen = Math.floor(uren / 24)
+  if (dagen === 1) return 'Gisteren'
+  if (dagen < 7) return `${dagen} dagen geleden`
+  return new Date(iso).toLocaleDateString('nl-NL', { day: 'numeric', month: 'short' })
+}

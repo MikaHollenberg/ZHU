@@ -6,7 +6,9 @@ import { supabase } from '../lib/supabase'
 import { PAGE_TITLES } from '../lib/pageTitles'
 import { usePendingAanvragen } from '../lib/usePendingAanvragen'
 import { buildAvailabilityTourSteps } from '../lib/tourSteps'
+import { useMeldingen } from '../lib/useMeldingen'
 import { OnboardingTour } from './OnboardingTour'
+import { MeldingenBel } from './MeldingenBel'
 import {
   BookIcon,
   CalendarIcon,
@@ -108,6 +110,8 @@ export function Layout({ children }: { children: ReactNode }) {
   const location = useLocation()
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false)
   const pendingCount = usePendingAanvragen(user, profile)
+  const { meldingen, ongelezenAantal, vernieuw: vernieuwMeldingen, markeerGelezen, verwijder: verwijderMelding } =
+    useMeldingen(profile)
   const avatarButtonRef = useRef<HTMLButtonElement>(null)
   const avatarMenuRef = useRef<HTMLDivElement>(null)
   const navItemRefs = useRef<Record<string, HTMLAnchorElement | null>>({})
@@ -257,15 +261,27 @@ export function Layout({ children }: { children: ReactNode }) {
 
       {/* Desktop zijbalk */}
       <aside className="sticky top-0 hidden h-screen w-60 flex-shrink-0 flex-col gap-5 bg-gradient-to-b from-sidebar to-sidebar-deep px-3.5 py-5 sm:flex">
-        <Link to="/" className="flex items-center gap-3 border-b-2 border-brand-blue-light/30 px-2 pb-4 text-white">
-          <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-white shadow-[0_2px_8px_rgba(0,0,0,0.25)]">
-            <img src="/logo-mark.png" alt="" className="h-7 w-7 object-contain" />
-          </span>
-          <span className="text-sm font-semibold leading-tight">
-            ZHU Zeilles
-            <span className="block text-[10px] font-medium text-brand-blue-light/70">ZeilPortal</span>
-          </span>
-        </Link>
+        <div className="flex items-center justify-between gap-2 border-b-2 border-brand-blue-light/30 px-2 pb-4">
+          <Link to="/" className="flex min-w-0 items-center gap-3 text-white">
+            <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-white shadow-[0_2px_8px_rgba(0,0,0,0.25)]">
+              <img src="/logo-mark.png" alt="" className="h-7 w-7 object-contain" />
+            </span>
+            <span className="min-w-0 text-sm font-semibold leading-tight">
+              ZHU Zeilles
+              <span className="block text-[10px] font-medium text-brand-blue-light/70">ZeilPortal</span>
+            </span>
+          </Link>
+          {!archived && profile?.rol === 'beheerder' && (
+            <MeldingenBel
+              meldingen={meldingen}
+              ongelezenAantal={ongelezenAantal}
+              onOpen={vernieuwMeldingen}
+              onMarkeer={markeerGelezen}
+              onVerwijder={verwijderMelding}
+              align="left"
+            />
+          )}
+        </div>
 
         <nav aria-label="Hoofdnavigatie" className="relative flex flex-1 flex-col gap-1">
           <div
@@ -352,52 +368,64 @@ export function Layout({ children }: { children: ReactNode }) {
             </span>
             ZHU Zeilles
           </Link>
-          {profile && (
-            <div className="relative">
-              <button
-                ref={avatarButtonRef}
-                type="button"
-                onClick={() => setAvatarMenuOpen((open) => !open)}
-                aria-haspopup="true"
-                aria-expanded={avatarMenuOpen}
-                aria-label="Accountmenu"
-                className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-yellow text-xs font-extrabold text-brand-blue-dark"
-              >
-                {initials || '?'}
-              </button>
-              {avatarMenuOpen && (
-                <div
-                  ref={avatarMenuRef}
-                  role="menu"
-                  aria-label="Account"
-                  className="absolute right-0 top-11 z-30 w-52 rounded-xl border border-slate-200 bg-white p-3 shadow-lg"
+          <div className="flex items-center gap-1.5">
+            {!archived && profile?.rol === 'beheerder' && (
+              <MeldingenBel
+                meldingen={meldingen}
+                ongelezenAantal={ongelezenAantal}
+                onOpen={vernieuwMeldingen}
+                onMarkeer={markeerGelezen}
+                onVerwijder={verwijderMelding}
+                align="right"
+              />
+            )}
+            {profile && (
+              <div className="relative">
+                <button
+                  ref={avatarButtonRef}
+                  type="button"
+                  onClick={() => setAvatarMenuOpen((open) => !open)}
+                  aria-haspopup="true"
+                  aria-expanded={avatarMenuOpen}
+                  aria-label="Accountmenu"
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-yellow text-xs font-extrabold text-brand-blue-dark"
                 >
-                  <p className="text-sm font-semibold text-slate-800">
-                    {profile.voornaam} {profile.achternaam}
-                  </p>
-                  <p className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-400">{roleLabel}</p>
-                  {kanRondleidingZien && (
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setAvatarMenuOpen(false)
-                        startTour()
-                      }}
-                      className="mb-2 flex w-full items-center justify-center gap-2 rounded-full border border-slate-200 px-3.5 py-2 text-sm font-semibold text-brand-blue-dark transition-colors duration-150 hover:bg-brand-blue-light/20"
-                    >
-                      <HelpIcon className="h-4 w-4 flex-none" />
-                      Rondleiding
+                  {initials || '?'}
+                </button>
+                {avatarMenuOpen && (
+                  <div
+                    ref={avatarMenuRef}
+                    role="menu"
+                    aria-label="Account"
+                    className="absolute right-0 top-11 z-30 w-52 rounded-xl border border-slate-200 bg-white p-3 shadow-lg"
+                  >
+                    <p className="text-sm font-semibold text-slate-800">
+                      {profile.voornaam} {profile.achternaam}
+                    </p>
+                    <p className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-400">{roleLabel}</p>
+                    {kanRondleidingZien && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setAvatarMenuOpen(false)
+                          startTour()
+                        }}
+                        className="mb-2 flex w-full items-center justify-center gap-2 rounded-full border border-slate-200 px-3.5 py-2 text-sm font-semibold text-brand-blue-dark transition-colors duration-150 hover:bg-brand-blue-light/20"
+                      >
+                        <HelpIcon className="h-4 w-4 flex-none" />
+                        Rondleiding
+                      </button>
+                    )}
+                    <button type="button" role="menuitem" onClick={handleLogout} className="btn-accent w-full">
+                      <LogoutIcon className="h-4 w-4" />
+                      Uitloggen
                     </button>
-                  )}
-                  <button type="button" role="menuitem" onClick={handleLogout} className="btn-accent w-full">
-                    <LogoutIcon className="h-4 w-4" />
-                    Uitloggen
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </header>
 

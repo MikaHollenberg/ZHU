@@ -11,6 +11,7 @@ import { QuickActionCard } from '../components/QuickActionCard'
 import { StatTile } from '../components/StatTile'
 import { DisciplineBadge } from '../components/DisciplineBadge'
 import { Loader } from '../components/Loader'
+import { stuurLesMail } from '../lib/notificaties'
 import {
   BookIcon,
   CalendarIcon,
@@ -350,6 +351,7 @@ function BeheerderHome() {
     setToastMessage('Instructeur gekoppeld')
     window.setTimeout(() => setJustConfirmedId(null), 900)
     window.setTimeout(() => setToastMessage(null), 2700)
+    stuurLesMail('aanvraag_goedgekeurd', les.id)
   }
 
   if (loading) return <Loader />

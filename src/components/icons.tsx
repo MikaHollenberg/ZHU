@@ -149,6 +149,36 @@ export function ChartBarIcon({ className }: IconProps) {
   )
 }
 
+export function BellIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5} className={className} aria-hidden="true">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M5 8.5a5 5 0 0 1 10 0c0 3 1 4.5 1.5 5.2.3.4 0 1-.5 1H4c-.5 0-.8-.6-.5-1C4 13 5 11.5 5 8.5Z"
+      />
+      <path strokeLinecap="round" d="M8 16.5c.4.9 1.1 1.5 2 1.5s1.6-.6 2-1.5" />
+    </svg>
+  )
+}
+
+export function TrashIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5} className={className} aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h12M8 6V4.5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1V6" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5.5 6 6.2 16a1 1 0 0 0 1 .9h5.6a1 1 0 0 0 1-.9L14.5 6" />
+    </svg>
+  )
+}
+
+export function DotIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" fill="currentColor" className={className} aria-hidden="true">
+      <circle cx="10" cy="10" r="5" />
+    </svg>
+  )
+}
+
 export function HomeIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5} className={className} aria-hidden="true">
