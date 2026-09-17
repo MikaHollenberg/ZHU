@@ -9,6 +9,7 @@ import { DUO_CURSUS_TYPE_LABELS, DUO_CURSUS_TYPE_SHORT_LABELS, DUO_CURSUS_TYPES 
 import type { DuoCursusType } from '../../lib/duoCursusType'
 import { DisciplineBadge } from '../../components/DisciplineBadge'
 import { CheckIcon, ClockIcon, XIcon } from '../../components/icons'
+import { Loader } from '../../components/Loader'
 import type { Beschikbaarheid, BeschikbaarheidType, LesSoort } from '../../types/availability'
 import type { Label, Les } from '../../types/lesson'
 import type { Profile } from '../../types/profile'
@@ -1040,10 +1041,7 @@ export function AdminBeschikbaarheid() {
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
       {loading ? (
-        <div className="flex items-center gap-2 py-8 text-slate-400">
-          <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-brand-blue" />
-          Laden...
-        </div>
+        <Loader />
       ) : (
         <>
         <h2 className="mb-3 text-base font-semibold text-slate-800">Beschikbaarheid van cursisten</h2>

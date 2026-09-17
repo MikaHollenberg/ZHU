@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactElement, ReactNode } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
@@ -10,6 +10,7 @@ import {
   CalendarIcon,
   ChartBarIcon,
   CompassIcon,
+  HelpIcon,
   LogoutIcon,
   TagIcon,
   UserIcon,
@@ -52,10 +53,13 @@ function navItemsForRole(rol: string | undefined): NavItem[] {
   ]
 }
 
+// De actieve achtergrond wordt niet meer per item getekend, maar door een los
+// schuivend element achter de nav-items (zie NavIndicator) — vandaar relative z-10
+// hier, zodat tekst/icoon altijd boven dat element blijven staan.
 const desktopNavClass = ({ isActive }: { isActive: boolean }) =>
-  `flex transform items-center gap-2.5 rounded-xl px-3 py-2 text-[13.5px] font-semibold transition-all duration-200 ${
+  `relative z-10 flex transform items-center gap-2.5 rounded-xl px-3 py-2 text-[13.5px] font-semibold transition-all duration-200 ${
     isActive
-      ? 'bg-brand-blue text-white shadow-sm'
+      ? 'text-white'
       : 'text-brand-blue-light/90 hover:translate-x-0.5 hover:bg-white/10 hover:text-white'
   }`
 
@@ -94,6 +98,8 @@ export function Layout({ children }: { children: ReactNode }) {
   const pendingCount = usePendingAanvragen(user, profile)
   const avatarButtonRef = useRef<HTMLButtonElement>(null)
   const avatarMenuRef = useRef<HTMLDivElement>(null)
+  const navItemRefs = useRef<Record<string, HTMLAnchorElement | null>>({})
+  const [navIndicator, setNavIndicator] = useState<{ top: number; height: number } | null>(null)
 
   const handleLogout = async () => {
     setAvatarMenuOpen(false)
@@ -134,6 +140,23 @@ export function Layout({ children }: { children: ReactNode }) {
     }
   }, [avatarMenuOpen])
 
+  const archived = Boolean(profile?.gearchiveerd)
+  const primaryNav = archived ? [] : navItemsForRole(profile?.rol)
+  const profileItem: NavItem = { to: '/profiel', label: 'Mijn gegevens', icon: UserIcon }
+  const navItems = archived ? [] : [...primaryNav, profileItem]
+
+  // Schuivende actieve-indicator in de zijbalk: meet de positie van het actieve
+  // nav-item na elke render zodat het losse balkje er precies achter past, i.p.v.
+  // dat elk item zelf een eigen achtergrond aan/uit zet.
+  useLayoutEffect(() => {
+    const actief = navItems.find(
+      (item) => location.pathname === item.to || location.pathname.startsWith(`${item.to}/`),
+    )
+    const el = actief ? navItemRefs.current[actief.to] : null
+    setNavIndicator(el ? { top: el.offsetTop, height: el.offsetHeight } : null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname, navItems.map((item) => item.to).join('|')])
+
   if (!session) {
     return (
       <div className="flex min-h-screen flex-col bg-brand-blue-light/15">
@@ -154,11 +177,6 @@ export function Layout({ children }: { children: ReactNode }) {
     )
   }
 
-  const archived = Boolean(profile?.gearchiveerd)
-  const primaryNav = archived ? [] : navItemsForRole(profile?.rol)
-  const profileItem: NavItem = { to: '/profiel', label: 'Mijn gegevens', icon: UserIcon }
-  const navItems = archived ? [] : [...primaryNav, profileItem]
-
   const initials = profile ? `${profile.voornaam?.[0] ?? ''}${profile.achternaam?.[0] ?? ''}`.toUpperCase() : ''
   const roleLabel = profile?.rol ? ROLE_LABELS[profile.rol] ?? profile.rol : ''
 
@@ -178,12 +196,28 @@ export function Layout({ children }: { children: ReactNode }) {
           </span>
         </Link>
 
-        <nav aria-label="Hoofdnavigatie" className="flex flex-1 flex-col gap-1">
+        <nav aria-label="Hoofdnavigatie" className="relative flex flex-1 flex-col gap-1">
+          <div
+            aria-hidden="true"
+            className="absolute inset-x-0 rounded-xl bg-brand-blue shadow-sm transition-all duration-200 ease-out"
+            style={{
+              top: navIndicator?.top ?? 0,
+              height: navIndicator?.height ?? 0,
+              opacity: navIndicator ? 1 : 0,
+            }}
+          />
           {navItems.map((item) => {
             const Icon = item.icon
             const badge = item.showBadge && pendingCount > 0 ? pendingCount : undefined
             return (
-              <NavLink key={item.to} to={item.to} className={desktopNavClass}>
+              <NavLink
+                key={item.to}
+                to={item.to}
+                ref={(el) => {
+                  navItemRefs.current[item.to] = el
+                }}
+                className={desktopNavClass}
+              >
                 <Icon className="h-[18px] w-[18px] flex-shrink-0" />
                 <span className="flex-1">{item.label}</span>
                 {badge !== undefined && (
@@ -201,6 +235,17 @@ export function Layout({ children }: { children: ReactNode }) {
 
         {profile && (
           <div className="flex flex-col gap-2">
+            {!archived && profile.rol !== 'beheerder' && (
+              <button
+                type="button"
+                onClick={() => navigate('/beschikbaarheid', { state: { openTour: true } })}
+                title="Rondleiding opnieuw starten"
+                className="flex items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-white/10 px-3 py-2 text-[12.5px] font-semibold text-brand-blue-light/90 transition-colors duration-150 hover:bg-white/10 hover:text-white"
+              >
+                <HelpIcon className="h-[15px] w-[15px] flex-none" />
+                Rondleiding
+              </button>
+            )}
             <div className="flex items-center gap-2.5 rounded-xl bg-white/5 px-2.5 py-2.5">
               <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-brand-yellow text-xs font-extrabold text-sidebar">
                 {initials || '?'}
@@ -259,6 +304,20 @@ export function Layout({ children }: { children: ReactNode }) {
                     {profile.voornaam} {profile.achternaam}
                   </p>
                   <p className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-400">{roleLabel}</p>
+                  {!archived && profile.rol !== 'beheerder' && (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setAvatarMenuOpen(false)
+                        navigate('/beschikbaarheid', { state: { openTour: true } })
+                      }}
+                      className="mb-2 flex w-full items-center justify-center gap-2 rounded-full border border-slate-200 px-3.5 py-2 text-sm font-semibold text-brand-blue-dark transition-colors duration-150 hover:bg-brand-blue-light/20"
+                    >
+                      <HelpIcon className="h-4 w-4 flex-none" />
+                      Rondleiding
+                    </button>
+                  )}
                   <button type="button" role="menuitem" onClick={handleLogout} className="btn-accent w-full">
                     <LogoutIcon className="h-4 w-4" />
                     Uitloggen

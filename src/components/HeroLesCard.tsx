@@ -77,7 +77,21 @@ export function HeroLesCard({
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             <DisciplineBadge discipline={les.discipline} />
             <span className={`badge ${STATUS_STYLES[les.status]}`}>{STATUS_LABELS[les.status]}</span>
-            {milestoneLabel && <span className="badge bg-brand-yellow text-brand-blue-dark">🎉 {milestoneLabel}</span>}
+            {milestoneLabel && (
+              <span className="relative inline-flex">
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-0 rounded-full border-2 border-brand-yellow-dark animate-ring-pulse"
+                />
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-0 rounded-full border-2 border-brand-yellow-dark animate-ring-pulse [animation-delay:200ms]"
+                />
+                <span className="badge relative bg-brand-yellow text-brand-blue-dark animate-milestone-pop">
+                  🎉 {milestoneLabel}
+                </span>
+              </span>
+            )}
           </div>
         </div>
       </div>

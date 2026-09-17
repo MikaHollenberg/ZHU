@@ -7,6 +7,7 @@ import { StatTile } from '../components/StatTile'
 import { DisciplineBreakdown } from '../components/DisciplineBreakdown'
 import { DisciplineBadge } from '../components/DisciplineBadge'
 import { CalendarPlusIcon } from '../components/icons'
+import { Loader } from '../components/Loader'
 import type { Les } from '../types/lesson'
 
 function formatDatum(datum: string) {
@@ -62,10 +63,7 @@ export function InstructeurStatistieken() {
       <p className="mb-6 text-sm text-slate-500">Een overzicht van de lessen die je hebt gegeven.</p>
 
       {loading ? (
-        <div className="flex items-center gap-2 py-8 text-slate-400">
-          <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-brand-blue" />
-          Laden...
-        </div>
+        <Loader />
       ) : lessen.length === 0 ? (
         <p className="flex items-center gap-2 rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-slate-400">
           <CalendarPlusIcon className="h-5 w-5 flex-none" /> Je hebt nog geen lessen gegeven.

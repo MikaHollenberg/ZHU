@@ -148,3 +148,14 @@ export function ChartBarIcon({ className }: IconProps) {
     </svg>
   )
 }
+
+export function HelpIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5} className={className} aria-hidden="true">
+      <circle cx="10" cy="10" r="7.2" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M7.7 7.9c.2-1.2 1.3-2 2.6-1.8 1.2.1 2.1 1 2.1 2.1 0 1.6-2.1 1.7-2.1 3.3" />
+      <circle cx="10" cy="14.1" r="0.9" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+

@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { STATUS_LABELS, STATUS_STYLES } from '../lib/lesStatus'
 import { DisciplineBadge } from '../components/DisciplineBadge'
 import { CalendarPlusIcon, CheckIcon, ClockIcon, XIcon } from '../components/icons'
+import { Loader } from '../components/Loader'
 import type { Les, LesStatus } from '../types/lesson'
 
 interface LesMetLabel extends Les {
@@ -92,10 +93,7 @@ export function MyLessons() {
       <p className="mb-6 text-sm text-slate-500">Een overzicht van al je geboekte priveslessen.</p>
 
       {loading ? (
-        <div className="flex items-center gap-2 py-8 text-slate-400">
-          <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-brand-blue" />
-          Laden...
-        </div>
+        <Loader />
       ) : (
         <>
           <h2 className="mb-3 text-base font-semibold text-slate-800">Toekomstige lessen</h2>

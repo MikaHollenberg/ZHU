@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { MINIMALE_TIJDVAK_MINUTEN, TIJD_OPTIES, tijdNaarMinuten } from '../lib/tijd'
@@ -8,10 +9,73 @@ import type { Discipline } from '../lib/disciplines'
 import { DUO_CURSUS_TYPE_LABELS, DUO_CURSUS_TYPES } from '../lib/duoCursusType'
 import type { DuoCursusType } from '../lib/duoCursusType'
 import { DisciplineBadge } from '../components/DisciplineBadge'
-import { CalendarPlusIcon, CheckIcon, ChevronRightIcon } from '../components/icons'
+import { CalendarIcon, CalendarPlusIcon, CheckIcon, ChevronRightIcon, CompassIcon, UsersIcon } from '../components/icons'
+import { Loader } from '../components/Loader'
+import { OnboardingTour } from '../components/OnboardingTour'
+import type { TourStep } from '../components/OnboardingTour'
 import type { Beschikbaarheid, BeschikbaarheidType, LesSoort } from '../types/availability'
 import { LEEG_TWEEDE_PERSOON } from '../types/tweedePersoon'
 import type { TweedePersoon, TweedePersoonInvoer } from '../types/tweedePersoon'
+
+const TOUR_OPGESLAGEN_KEY = 'zhu_tour_beschikbaarheid_v1'
+
+function bouwTourStappen({ isInstructeur, metDuoStap }: { isInstructeur: boolean; metDuoStap: boolean }): TourStep[] {
+  const stappen: TourStep[] = [
+    {
+      title: 'Welkom bij Beschikbaarheid',
+      body: isInstructeur
+        ? 'Hier geef je door op welke dagen je kunt lesgeven. We lopen in een paar korte stapjes samen door deze pagina — dat duurt ongeveer een halve minuut.'
+        : 'Hier geef je door op welke dagen je kunt zeilen. Wij plannen daarna zelf een les voor je in. We lopen in een paar korte stapjes samen door deze pagina — dat duurt ongeveer een minuut.',
+      icon: CompassIcon,
+    },
+  ]
+
+  if (!isInstructeur) {
+    stappen.push(
+      {
+        title: 'Kies jouw discipline',
+        body: 'Kies hier welke vorm van zeilen je wilt doen: Polyvalk, Fox22 of Windsurf. Je stelt dit maar één keer in — het portal onthoudt je keuze voortaan vanzelf. Weet je niet zeker wat het beste bij je past? Neem gerust contact met ons op via info@zeilschooluitgeest.nl, dan adviseren we je graag welke discipline goed bij je past.',
+        targetId: 'tour-discipline',
+        icon: CompassIcon,
+      },
+      {
+        title: 'Kies jouw lesvorm',
+        body: 'Daarna kies je je lesvorm: een privéles (alleen voor jou) of een duo-cursus samen met een vaste partner, in 5 keer 2 uur of een 2-daagse cursus. Ook deze keuze wordt onthouden. Twijfel je tussen privéles en duo-cursus, of tussen de duo-vormen? Bel of mail ons gerust via info@zeilschooluitgeest.nl — we denken graag met je mee.',
+        targetId: 'tour-lesvorm',
+        icon: UsersIcon,
+      },
+    )
+
+    if (metDuoStap) {
+      stappen.push({
+        title: 'Gegevens van je duo-partner',
+        body: 'Omdat je voor een duo-cursus hebt gekozen, vul je hier eenmalig de gegevens van je vaste partner in. Dat hoef je maar één keer te doen — het portal gebruikt deze gegevens daarna automatisch bij elke duo-les.',
+        targetId: 'tour-duo-partner',
+        icon: UsersIcon,
+      })
+    }
+  }
+
+  stappen.push(
+    {
+      title: 'Geef je dagen door',
+      body: isInstructeur
+        ? 'Hieronder zie je de komende dagen, per week. Tik op een dag om aan te geven of je die dag de hele dag kunt lesgeven, helemaal niet kunt, of alleen tijdens een bepaald tijdvak (minimaal 2 uur).'
+        : 'Hieronder zie je de komende dagen, per week. Tik op een dag om aan te geven of je die dag de hele dag kunt, helemaal niet kunt, of alleen tijdens een bepaald tijdvak (minimaal 2 uur).',
+      targetId: 'tour-kalender',
+      icon: CalendarIcon,
+    },
+    {
+      title: 'Dat is alles!',
+      body: isInstructeur
+        ? 'Zodra je dagen hebt doorgegeven, kun je je bij "Lesgeven" aanmelden voor openstaande lessen op die dagen. Twijfel je later nog ergens over? Klik dan bovenaan op "Rondleiding opnieuw starten".'
+        : 'Zodra je dagen hebt doorgegeven, plant de zeilschool daar een les voor je in. Je ziet die les daarna terug bij "Mijn lessen". Twijfel je later nog ergens over? Klik dan bovenaan op "Rondleiding opnieuw starten".',
+      icon: CheckIcon,
+    },
+  )
+
+  return stappen
+}
 
 const TYPE_LABELS: Record<BeschikbaarheidType, string> = {
   hele_dag_beschikbaar: 'Hele dag beschikbaar',
@@ -40,6 +104,8 @@ function vandaag() {
 
 export function Availability() {
   const { user, profile, refreshProfile } = useAuth()
+  const location = useLocation()
+  const navigate = useNavigate()
   const isInstructeur = profile?.rol === 'instructeur'
   const [maand, setMaand] = useState(() => {
     const n = new Date()
@@ -57,6 +123,9 @@ export function Availability() {
   const [vormOpslaan, setVormOpslaan] = useState(false)
   const [duoPartner, setDuoPartner] = useState<TweedePersoonInvoer>(LEEG_TWEEDE_PERSOON)
   const [duoPartnerOpslaan, setDuoPartnerOpslaan] = useState(false)
+
+  const [tourOpen, setTourOpen] = useState(false)
+  const [tourStep, setTourStep] = useState(0)
 
   const [editingDatum, setEditingDatum] = useState<string | null>(null)
   const [editType, setEditType] = useState<BeschikbaarheidType>('hele_dag_beschikbaar')
@@ -134,6 +203,57 @@ export function Availability() {
         : LEEG_TWEEDE_PERSOON,
     )
   }, [eigenTweedePersoon])
+
+  const tourSteps = useMemo(
+    () => bouwTourStappen({ isInstructeur, metDuoStap: standaardSoort === 'duo_cursus' }),
+    [isInstructeur, standaardSoort],
+  )
+
+  // Rondleiding automatisch tonen voor wie 'm nog niet heeft gezien — met een korte
+  // vertraging zodat de pagina al is opgebouwd voordat de spotlight iets meet.
+  useEffect(() => {
+    let gezien = true
+    try {
+      gezien = window.localStorage.getItem(TOUR_OPGESLAGEN_KEY) === '1'
+    } catch {
+      // localStorage niet beschikbaar (bijv. privénavigatie) — dan geen automatische rondleiding.
+      return
+    }
+    if (gezien) return
+    const timer = window.setTimeout(() => setTourOpen(true), 500)
+    return () => window.clearTimeout(timer)
+  }, [])
+
+  // De "Rondleiding opnieuw starten"-knop in de zijbalk navigeert hierheen met dit
+  // signaal in de router-state — werkt dus ook vanaf een andere pagina.
+  useEffect(() => {
+    const state = location.state as { openTour?: boolean } | null
+    if (!state?.openTour) return
+    setTourStep(0)
+    setTourOpen(true)
+    navigate(location.pathname, { replace: true, state: null })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state])
+
+  const sluitTour = () => {
+    setTourOpen(false)
+    setTourStep(0)
+    try {
+      window.localStorage.setItem(TOUR_OPGESLAGEN_KEY, '1')
+    } catch {
+      // negeren — dan verschijnt de rondleiding een volgende keer opnieuw, niet erg.
+    }
+  }
+
+  const volgendeTourStap = () => {
+    if (tourStep >= tourSteps.length - 1) {
+      sluitTour()
+      return
+    }
+    setTourStep((s) => s + 1)
+  }
+
+  const vorigeTourStap = () => setTourStep((s) => Math.max(0, s - 1))
 
   const handleStandaardDisciplineChange = async (waarde: Discipline) => {
     if (!user) return
@@ -316,7 +436,7 @@ export function Availability() {
 
       {!isInstructeur && (
         <div className="card mb-5 space-y-4 px-4 py-4">
-          <label className="block">
+          <label id="tour-discipline" className="block scroll-mt-4">
             <span className="mb-1 block text-sm font-medium text-slate-700">Jouw discipline</span>
             <select
               value={standaardDiscipline}
@@ -334,7 +454,7 @@ export function Availability() {
             </p>
           </label>
 
-          <label className="block">
+          <label id="tour-lesvorm" className="block scroll-mt-4">
             <span className="mb-1 block text-sm font-medium text-slate-700">Jouw lesvorm</span>
             <select
               value={standaardSoort === 'priveles' ? 'priveles' : standaardDuoCursusType}
@@ -354,7 +474,7 @@ export function Availability() {
           </label>
 
           {standaardSoort === 'duo_cursus' && (
-            <div className="space-y-3 rounded-xl bg-brand-blue-light/10 p-3.5">
+            <div id="tour-duo-partner" className="space-y-3 rounded-xl bg-brand-blue-light/10 p-3.5 scroll-mt-4">
               <p className="text-sm font-medium text-slate-700">Gegevens duo-partner</p>
               <div className="grid grid-cols-2 gap-3">
                 <label className="block">
@@ -442,165 +562,168 @@ export function Availability() {
       {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
 
       {loading ? (
-        <div className="flex items-center gap-2 py-8 text-slate-400">
-          <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-brand-blue" />
-          Laden...
-        </div>
+        <Loader />
       ) : (
-        weken.map((week) => (
-          <div key={week.weekNummer} className="mb-5">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-              Week {week.weekNummer}
-            </p>
-            <div className="space-y-2">
-              {week.dagen.map((dag) => {
-                const key = toDateKey(dag)
-                const entry = itemsByDatum[key]
-                const isPast = dag < today
-                const isLocked = entry?.status === 'ingepland'
-                const isEditing = editingDatum === key
+        <div id="tour-kalender" className="scroll-mt-4">
+          {weken.map((week) => (
+            <div key={week.weekNummer} className="mb-5">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                Week {week.weekNummer}
+              </p>
+              <div className="space-y-2">
+                {week.dagen.map((dag) => {
+                  const key = toDateKey(dag)
+                  const entry = itemsByDatum[key]
+                  const isPast = dag < today
+                  const isLocked = entry?.status === 'ingepland'
+                  const isEditing = editingDatum === key
 
-                return (
-                  <div
-                    key={key}
-                    className={`card overflow-hidden ${isEditing ? 'ring-2 ring-brand-blue/40' : ''} ${
-                      isPast ? 'opacity-50' : ''
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      disabled={isPast || isLocked}
-                      onClick={() => openEditor(key, entry)}
-                      className="group flex w-full items-center justify-between px-4 py-3.5 text-left transition-colors duration-150 hover:bg-brand-blue-light/10 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                  return (
+                    <div
+                      key={key}
+                      className={`card overflow-hidden ${isEditing ? 'ring-2 ring-brand-blue/40' : ''} ${
+                        isPast ? 'opacity-50' : ''
+                      }`}
                     >
-                      <div className="min-w-0">
-                        <p className="font-medium capitalize text-slate-800">
-                          {dag.toLocaleDateString('nl-NL', { weekday: 'long' })}{' '}
-                          <span className="font-normal text-slate-500">
-                            {dag.getDate()} {dag.toLocaleDateString('nl-NL', { month: 'short' })}
-                          </span>
-                        </p>
-                        <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-sm">
-                          {entry ? (
-                            <span className="text-slate-500">{samenvatting(entry)}</span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-slate-400">
-                              <CalendarPlusIcon className="h-3.5 w-3.5" /> Nog niets doorgegeven
+                      <button
+                        type="button"
+                        disabled={isPast || isLocked}
+                        onClick={() => openEditor(key, entry)}
+                        className="group flex w-full items-center justify-between px-4 py-3.5 text-left transition-colors duration-150 hover:bg-brand-blue-light/10 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-medium capitalize text-slate-800">
+                            {dag.toLocaleDateString('nl-NL', { weekday: 'long' })}{' '}
+                            <span className="font-normal text-slate-500">
+                              {dag.getDate()} {dag.toLocaleDateString('nl-NL', { month: 'short' })}
                             </span>
-                          )}
-                          {!isInstructeur && entry && entry.type !== 'hele_dag_onbeschikbaar' && (
-                            <DisciplineBadge discipline={entry.discipline} />
-                          )}
-                        </p>
-                      </div>
-                      {isLocked ? (
-                        <span className="badge bg-status-bevestigd-bg text-status-bevestigd">
-                          <CheckIcon className="h-3.5 w-3.5" /> Ingepland
-                        </span>
-                      ) : (
-                        !isPast && (
-                          <ChevronRightIcon className="h-4 w-4 flex-none text-slate-300 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-brand-blue" />
-                        )
-                      )}
-                    </button>
-
-                    {isEditing && (
-                      <div className="space-y-4 border-t border-slate-100 bg-white px-4 py-4">
-                        <div className="flex flex-wrap gap-2">
-                          {(Object.keys(TYPE_LABELS) as BeschikbaarheidType[]).map((optie) => (
-                            <label
-                              key={optie}
-                              className="cursor-pointer rounded-full border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors duration-150 has-[:checked]:border-brand-blue has-[:checked]:bg-brand-blue has-[:checked]:text-white has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand-blue/40"
-                            >
-                              <input
-                                type="radio"
-                                name={`type-${key}`}
-                                value={optie}
-                                checked={editType === optie}
-                                onChange={() => setEditType(optie)}
-                                className="sr-only"
-                              />
-                              {TYPE_LABELS[optie]}
-                            </label>
-                          ))}
-                        </div>
-
-                        {editType === 'tijdvak' && (
-                          <div className="grid grid-cols-2 gap-4">
-                            <label className="block">
-                              <span className="mb-1 block text-sm font-medium text-slate-700">Van</span>
-                              <select
-                                value={editStart}
-                                onChange={(e) => handleStartChange(e.target.value)}
-                                className="input"
-                              >
-                                {TIJD_OPTIES.map((t) => (
-                                  <option key={t} value={t}>
-                                    {t}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                            <label className="block">
-                              <span className="mb-1 block text-sm font-medium text-slate-700">Tot</span>
-                              <select
-                                value={editEind}
-                                onChange={(e) => setEditEind(e.target.value)}
-                                className="input"
-                              >
-                                {eindOpties.map((t) => (
-                                  <option key={t} value={t}>
-                                    {t}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
-                          </div>
-                        )}
-
-                        {!isInstructeur && editType !== 'hele_dag_onbeschikbaar' && (
-                          <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-500">
-                            Lesvorm: <span className="font-medium text-slate-700">{SOORT_LABELS[editSoort]}</span>
-                            {editSoort === 'duo_cursus' && ` (${DUO_CURSUS_TYPE_LABELS[editDuoCursusType]})`}
-                            {' — pas dit aan bij "Jouw lesvorm" bovenaan.'}
                           </p>
+                          <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-sm">
+                            {entry ? (
+                              <span className="text-slate-500">{samenvatting(entry)}</span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-slate-400">
+                                <CalendarPlusIcon className="h-3.5 w-3.5" /> Nog niets doorgegeven
+                              </span>
+                            )}
+                            {!isInstructeur && entry && entry.type !== 'hele_dag_onbeschikbaar' && (
+                              <DisciplineBadge discipline={entry.discipline} />
+                            )}
+                          </p>
+                        </div>
+                        {isLocked ? (
+                          <span className="badge bg-status-bevestigd-bg text-status-bevestigd">
+                            <CheckIcon className="h-3.5 w-3.5" /> Ingepland
+                          </span>
+                        ) : (
+                          !isPast && (
+                            <ChevronRightIcon className="h-4 w-4 flex-none text-slate-300 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-brand-blue" />
+                          )
                         )}
+                      </button>
 
-                        <div className="flex items-center gap-3 pt-1">
-                          <button
-                            type="button"
-                            disabled={submitting}
-                            onClick={() => handleSave(key)}
-                            className="btn-primary"
-                          >
-                            {submitting ? 'Bezig...' : 'Opslaan'}
-                          </button>
-                          {entry && (
+                      {isEditing && (
+                        <div className="space-y-4 border-t border-slate-100 bg-white px-4 py-4">
+                          <div className="flex flex-wrap gap-2">
+                            {(Object.keys(TYPE_LABELS) as BeschikbaarheidType[]).map((optie) => (
+                              <label
+                                key={optie}
+                                className="cursor-pointer rounded-full border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors duration-150 has-[:checked]:border-brand-blue has-[:checked]:bg-brand-blue has-[:checked]:text-white has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand-blue/40"
+                              >
+                                <input
+                                  type="radio"
+                                  name={`type-${key}`}
+                                  value={optie}
+                                  checked={editType === optie}
+                                  onChange={() => setEditType(optie)}
+                                  className="sr-only"
+                                />
+                                {TYPE_LABELS[optie]}
+                              </label>
+                            ))}
+                          </div>
+
+                          {editType === 'tijdvak' && (
+                            <div className="grid grid-cols-2 gap-4">
+                              <label className="block">
+                                <span className="mb-1 block text-sm font-medium text-slate-700">Van</span>
+                                <select
+                                  value={editStart}
+                                  onChange={(e) => handleStartChange(e.target.value)}
+                                  className="input"
+                                >
+                                  {TIJD_OPTIES.map((t) => (
+                                    <option key={t} value={t}>
+                                      {t}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              <label className="block">
+                                <span className="mb-1 block text-sm font-medium text-slate-700">Tot</span>
+                                <select
+                                  value={editEind}
+                                  onChange={(e) => setEditEind(e.target.value)}
+                                  className="input"
+                                >
+                                  {eindOpties.map((t) => (
+                                    <option key={t} value={t}>
+                                      {t}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                            </div>
+                          )}
+
+                          {!isInstructeur && editType !== 'hele_dag_onbeschikbaar' && (
+                            <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-500">
+                              Lesvorm: <span className="font-medium text-slate-700">{SOORT_LABELS[editSoort]}</span>
+                              {editSoort === 'duo_cursus' && ` (${DUO_CURSUS_TYPE_LABELS[editDuoCursusType]})`}
+                              {' — pas dit aan bij "Jouw lesvorm" bovenaan.'}
+                            </p>
+                          )}
+
+                          <div className="flex items-center gap-3 pt-1">
                             <button
                               type="button"
                               disabled={submitting}
-                              onClick={() => handleClear(key)}
-                              className="text-sm font-medium text-red-600 transition-colors hover:text-red-700 hover:underline"
+                              onClick={() => handleSave(key)}
+                              className="btn-primary"
                             >
-                              Wissen
+                              {submitting ? 'Bezig...' : 'Opslaan'}
                             </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => setEditingDatum(null)}
-                            className="ml-auto text-sm text-slate-500 transition-colors hover:text-slate-700 hover:underline"
-                          >
-                            Annuleren
-                          </button>
+                            {entry && (
+                              <button
+                                type="button"
+                                disabled={submitting}
+                                onClick={() => handleClear(key)}
+                                className="text-sm font-medium text-red-600 transition-colors hover:text-red-700 hover:underline"
+                              >
+                                Wissen
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => setEditingDatum(null)}
+                              className="ml-auto text-sm text-slate-500 transition-colors hover:text-slate-700 hover:underline"
+                            >
+                              Annuleren
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             </div>
-          </div>
-        ))
+          ))}
+        </div>
+      )}
+
+      {tourOpen && (
+        <OnboardingTour steps={tourSteps} step={tourStep} onNext={volgendeTourStap} onPrev={vorigeTourStap} onSkip={sluitTour} />
       )}
     </div>
   )

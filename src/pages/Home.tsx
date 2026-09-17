@@ -10,6 +10,7 @@ import { HeroLesCard } from '../components/HeroLesCard'
 import { QuickActionCard } from '../components/QuickActionCard'
 import { StatTile } from '../components/StatTile'
 import { DisciplineBadge } from '../components/DisciplineBadge'
+import { Loader } from '../components/Loader'
 import {
   BookIcon,
   CalendarIcon,
@@ -33,34 +34,35 @@ interface LesMetPartner extends Les {
   tweede_persoon: { voornaam: string; achternaam: string } | null
 }
 
-function InstructeurStatusIcon({ les }: { les: Pick<Les, 'instructeur_id' | 'instructeur_aanvraag_id'> }) {
+function InstructeurStatusIcon({
+  les,
+  pop,
+}: {
+  les: Pick<Les, 'instructeur_id' | 'instructeur_aanvraag_id'>
+  /** Speelt de vinkje-pop af — alleen waar voor de les die zojuist is goedgekeurd. */
+  pop?: boolean
+}) {
   if (les.instructeur_id) {
     return (
-      <span title="Instructeur gekoppeld" className="text-status-bevestigd">
+      <span
+        title="Instructeur gekoppeld"
+        className={`inline-flex text-status-bevestigd ${pop ? 'animate-badge-pop' : ''}`}
+      >
         <CheckIcon className="h-3.5 w-3.5" />
       </span>
     )
   }
   if (les.instructeur_aanvraag_id) {
     return (
-      <span title="Aanvraag in behandeling" className="text-status-wachtend">
+      <span title="Aanvraag in behandeling" className="inline-flex text-status-wachtend">
         <ClockIcon className="h-3.5 w-3.5" />
       </span>
     )
   }
   return (
-    <span title="Nog geen instructeur" className="text-slate-400">
+    <span title="Nog geen instructeur" className="inline-flex text-slate-400">
       <XIcon className="h-3.5 w-3.5" />
     </span>
-  )
-}
-
-function Loader() {
-  return (
-    <div className="flex items-center gap-2 py-8 text-slate-400">
-      <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-brand-blue" />
-      Laden...
-    </div>
   )
 }
 
@@ -158,7 +160,7 @@ function CursistHome() {
   if (loading) return <Loader />
 
   return (
-    <>
+    <div className="stagger-in">
       {weekOntbreekt && (
         <p className="mb-4 flex items-center gap-2 rounded-xl bg-brand-blue-light/25 px-4 py-3 text-sm text-brand-blue-dark">
           <CalendarIcon className="h-4 w-4 flex-none" />
@@ -197,7 +199,7 @@ function CursistHome() {
           Lessen deze maand: <strong className="font-semibold text-slate-700">{lessenDezeMaand}</strong>
         </p>
       </div>
-    </>
+    </div>
   )
 }
 
@@ -237,7 +239,7 @@ function InstructeurHome() {
   if (loading) return <Loader />
 
   return (
-    <>
+    <div className="stagger-in">
       {profile && !profile.instructeur_goedgekeurd && (
         <p className="mb-4 flex items-center gap-2 rounded-xl bg-status-wachtend-bg px-4 py-3 text-sm text-status-wachtend">
           <ClockIcon className="h-4 w-4 flex-none" />
@@ -271,7 +273,7 @@ function InstructeurHome() {
         <QuickActionCard to="/lesgeven" label="Naar Lesgeven" icon={CompassIcon} />
         <QuickActionCard to="/statistieken" label="Bekijk statistieken" icon={ChartBarIcon} />
       </div>
-    </>
+    </div>
   )
 }
 
@@ -284,6 +286,8 @@ function BeheerderHome() {
   const [instructeurNamen, setInstructeurNamen] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [goedkeurenId, setGoedkeurenId] = useState<string | null>(null)
+  const [justConfirmedId, setJustConfirmedId] = useState<string | null>(null)
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
 
   const load = () => {
     const vandaag = new Date()
@@ -342,91 +346,107 @@ function BeheerderHome() {
       .eq('id', les.id)
     await load()
     setGoedkeurenId(null)
+    setJustConfirmedId(les.id)
+    setToastMessage('Instructeur gekoppeld')
+    window.setTimeout(() => setJustConfirmedId(null), 900)
+    window.setTimeout(() => setToastMessage(null), 2700)
   }
 
   if (loading) return <Loader />
 
   return (
     <>
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatTile label="Actieve cursisten" value={String(actieveCursisten)} />
-        <StatTile label="Actieve instructeurs" value={String(actieveInstructeurs)} />
-        <StatTile label="Lessen deze week" value={String(komendeWeek.length)} />
-        <StatTile label="Aanvragen" value={String(aanvragen.length)} badge={aanvragen.length} />
-      </div>
-
-      {aanvragen.length > 0 && (
-        <div className="mb-6">
-          <h2 className="mb-3 text-base font-semibold text-slate-800">Wacht op goedkeuring</h2>
-          <ul className="space-y-2">
-            {aanvragen.map((a) => (
-              <li key={a.id} className="card flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium capitalize text-slate-800">
-                    {dagAfkorting(a.datum)} {dagNummer(a.datum)} · {a.starttijd.slice(0, 5)}-{a.eindtijd.slice(0, 5)}
-                  </p>
-                  <p className="text-sm text-slate-500">
-                    {instructeurNamen[a.instructeur_aanvraag_id ?? ''] ?? 'Instructeur'} meldt zich aan
-                  </p>
-                </div>
-                <div className="flex flex-none items-center gap-2">
-                  <DisciplineBadge discipline={a.discipline} />
-                  <button
-                    type="button"
-                    disabled={goedkeurenId === a.id}
-                    onClick={() => handleGoedkeuren(a)}
-                    className="btn-accent"
-                  >
-                    {goedkeurenId === a.id ? 'Bezig...' : 'Goedkeuren'}
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
+      {toastMessage && (
+        <div
+          role="status"
+          className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-xl bg-slate-800 px-4 py-3 text-sm font-semibold text-white shadow-lg animate-toast-in"
+        >
+          <CheckIcon className="h-4 w-4 flex-none" />
+          {toastMessage}
         </div>
       )}
 
-      <h2 className="mb-3 text-base font-semibold text-slate-800">Komende week</h2>
-      {komendeWeek.length === 0 ? (
-        <p className="mb-6 rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-center text-slate-400">
-          Geen lessen gepland in de komende week.
-        </p>
-      ) : (
-        <ul className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[var(--shadow-card)]">
-          {komendeWeek.slice(0, 5).map((les) => {
-            const isVandaag = les.datum === new Date().toISOString().slice(0, 10)
-            return (
-            <li
-              key={les.id}
-              className={`flex items-center gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0 ${isVandaag ? 'bg-brand-yellow/10' : ''}`}
-            >
-              <div
-                className={`flex h-9 w-9 flex-none flex-col items-center justify-center rounded-lg text-[10px] font-bold leading-none ${
-                  isVandaag ? 'bg-brand-yellow text-brand-blue-dark' : 'bg-brand-blue-light/25 text-brand-blue-dark'
-                }`}
-              >
-                <span>{isVandaag ? 'NU' : dagAfkorting(les.datum)}</span>
-                <span className="text-xs">{dagNummer(les.datum)}</span>
-              </div>
-              <p className="min-w-0 flex-1 truncate text-sm font-medium text-slate-800">
-                {les.soort === 'duo_cursus'
-                  ? `Duo-cursus${les.tweede_persoon ? ` — ${les.tweede_persoon.voornaam} ${les.tweede_persoon.achternaam}` : ''}`
-                  : cursistNamen[les.cursist_id] ?? 'Cursist'}
-              </p>
-              <DisciplineBadge discipline={les.discipline} />
-              <InstructeurStatusIcon les={les} />
-              <span className="flex-none text-sm text-slate-400">{les.starttijd.slice(0, 5)}</span>
-            </li>
-            )
-          })}
-        </ul>
-      )}
+      <div className="stagger-in">
+        <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <StatTile label="Actieve cursisten" value={String(actieveCursisten)} />
+          <StatTile label="Actieve instructeurs" value={String(actieveInstructeurs)} />
+          <StatTile label="Lessen deze week" value={String(komendeWeek.length)} />
+          <StatTile label="Aanvragen" value={String(aanvragen.length)} badge={aanvragen.length} />
+        </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <QuickActionCard to="/beheer/cursisten" label="Cursisten" icon={UsersIcon} />
-        <QuickActionCard to="/beheer/beschikbaarheid" label="Rooster" icon={CalendarIcon} />
-        <QuickActionCard to="/beheer/labels" label="Labels" icon={TagIcon} />
-        <QuickActionCard to="/beheer/statistieken" label="Statistieken" icon={ChartBarIcon} />
+        {aanvragen.length > 0 && (
+          <div className="mb-6">
+            <h2 className="mb-3 text-base font-semibold text-slate-800">Wacht op goedkeuring</h2>
+            <ul className="space-y-2">
+              {aanvragen.map((a) => (
+                <li key={a.id} className="card flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium capitalize text-slate-800">
+                      {dagAfkorting(a.datum)} {dagNummer(a.datum)} · {a.starttijd.slice(0, 5)}-{a.eindtijd.slice(0, 5)}
+                    </p>
+                    <p className="text-sm text-slate-500">
+                      {instructeurNamen[a.instructeur_aanvraag_id ?? ''] ?? 'Instructeur'} meldt zich aan
+                    </p>
+                  </div>
+                  <div className="flex flex-none items-center gap-2">
+                    <DisciplineBadge discipline={a.discipline} />
+                    <button
+                      type="button"
+                      disabled={goedkeurenId === a.id}
+                      onClick={() => handleGoedkeuren(a)}
+                      className="btn-accent"
+                    >
+                      {goedkeurenId === a.id ? 'Bezig...' : 'Goedkeuren'}
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <h2 className="mb-3 text-base font-semibold text-slate-800">Komende week</h2>
+        {komendeWeek.length === 0 ? (
+          <p className="mb-6 rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-center text-slate-400">
+            Geen lessen gepland in de komende week.
+          </p>
+        ) : (
+          <ul className="mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[var(--shadow-card)]">
+            {komendeWeek.slice(0, 5).map((les) => {
+              const isVandaag = les.datum === new Date().toISOString().slice(0, 10)
+              return (
+                <li
+                  key={les.id}
+                  className={`flex items-center gap-3 border-b border-slate-100 px-4 py-3 last:border-b-0 ${isVandaag ? 'bg-brand-yellow/10' : ''}`}
+                >
+                  <div
+                    className={`flex h-9 w-9 flex-none flex-col items-center justify-center rounded-lg text-[10px] font-bold leading-none ${
+                      isVandaag ? 'bg-brand-yellow text-brand-blue-dark' : 'bg-brand-blue-light/25 text-brand-blue-dark'
+                    }`}
+                  >
+                    <span>{isVandaag ? 'NU' : dagAfkorting(les.datum)}</span>
+                    <span className="text-xs">{dagNummer(les.datum)}</span>
+                  </div>
+                  <p className="min-w-0 flex-1 truncate text-sm font-medium text-slate-800">
+                    {les.soort === 'duo_cursus'
+                      ? `Duo-cursus${les.tweede_persoon ? ` — ${les.tweede_persoon.voornaam} ${les.tweede_persoon.achternaam}` : ''}`
+                      : cursistNamen[les.cursist_id] ?? 'Cursist'}
+                  </p>
+                  <DisciplineBadge discipline={les.discipline} />
+                  <InstructeurStatusIcon les={les} pop={les.id === justConfirmedId} />
+                  <span className="flex-none text-sm text-slate-400">{les.starttijd.slice(0, 5)}</span>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <QuickActionCard to="/beheer/cursisten" label="Cursisten" icon={UsersIcon} />
+          <QuickActionCard to="/beheer/beschikbaarheid" label="Rooster" icon={CalendarIcon} />
+          <QuickActionCard to="/beheer/labels" label="Labels" icon={TagIcon} />
+          <QuickActionCard to="/beheer/statistieken" label="Statistieken" icon={ChartBarIcon} />
+        </div>
       </div>
     </>
   )

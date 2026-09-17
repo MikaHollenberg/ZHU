@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { Loader } from '../components/Loader'
 
 type Status = 'controleren' | 'klaar' | 'ongeldig'
 
@@ -65,10 +66,10 @@ export function ResetPassword() {
 
   if (status === 'controleren') {
     return (
-      <div className="mx-auto flex max-w-md items-center justify-center gap-2 py-16 text-slate-400">
-        <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-brand-blue" />
-        Link controleren...
-      </div>
+      <Loader
+        label="Link controleren..."
+        className="mx-auto flex max-w-md items-center justify-center gap-2 py-16 text-slate-400"
+      />
     )
   }
 

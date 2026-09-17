@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { CheckIcon } from '../components/icons'
+import { Loader } from '../components/Loader'
 
 export function Profile() {
   const { profile, refreshProfile } = useAuth()
@@ -64,12 +65,7 @@ export function Profile() {
   }
 
   if (!profile) {
-    return (
-      <div className="flex items-center gap-2 py-8 text-slate-400">
-        <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-brand-blue" />
-        Profiel laden...
-      </div>
-    )
+    return <Loader label="Profiel laden..." />
   }
 
   return (

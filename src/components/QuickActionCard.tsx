@@ -12,7 +12,7 @@ export function QuickActionCard({ to, label, icon: Icon }: QuickActionCardProps)
   return (
     <Link
       to={to}
-      className="card flex items-center gap-3 px-4 py-3.5 transition-shadow duration-150 hover:shadow-[var(--shadow-card-hover)]"
+      className="card flex items-center gap-3 px-4 py-3.5 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[var(--shadow-card-hover)]"
     >
       <span className="flex h-9 w-9 flex-none items-center justify-center rounded-xl bg-brand-blue-light/40 text-brand-blue-dark">
         <Icon className="h-[18px] w-[18px]" />

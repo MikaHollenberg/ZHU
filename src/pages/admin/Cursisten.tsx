@@ -5,6 +5,7 @@ import type { Profile, UserRole } from '../../types/profile'
 import type { TweedePersoon } from '../../types/tweedePersoon'
 import { DUO_CURSUS_TYPE_LABELS } from '../../lib/duoCursusType'
 import type { DuoCursusType } from '../../lib/duoCursusType'
+import { Loader } from '../../components/Loader'
 
 type Sortering = 'nieuwste' | 'naam'
 type RolFilter = 'cursist' | 'instructeur'
@@ -268,10 +269,7 @@ export function AdminCursisten() {
       </div>
 
       {loading ? (
-        <div className="flex items-center gap-2 py-8 text-slate-400">
-          <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-brand-blue" />
-          Laden...
-        </div>
+        <Loader />
       ) : (
         <div className="card overflow-x-auto">
           <table className="w-full text-left text-sm">

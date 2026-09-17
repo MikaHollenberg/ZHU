@@ -4,6 +4,7 @@ import { DISCIPLINES } from '../../lib/disciplines'
 import { lesUren, formatUren } from '../../lib/stats'
 import { StatTile } from '../../components/StatTile'
 import { DisciplineBreakdown } from '../../components/DisciplineBreakdown'
+import { Loader } from '../../components/Loader'
 import type { Les } from '../../types/lesson'
 
 interface InstructeurRow {
@@ -76,12 +77,7 @@ export function AdminStatistieken() {
   }, [lessen, instructeurs])
 
   if (loading) {
-    return (
-      <div className="flex items-center gap-2 py-8 text-slate-400">
-        <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-brand-blue" />
-        Laden...
-      </div>
-    )
+    return <Loader />
   }
 
   return (
