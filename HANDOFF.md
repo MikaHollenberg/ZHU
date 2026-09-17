@@ -8,7 +8,8 @@ Een webportal voor priveslessen van Zeilschool Het Uitgeestermeer. Cursisten gev
 beschikbaarheid door, de beheerder plant lessen in, instructeurs kunnen lessen
 geven. React + Vite + TypeScript + Tailwind, met Supabase (Postgres + Auth + Row
 Level Security) als backend. Geen aparte server — alles draait via Supabase's API
-rechtstreeks vanuit de browser.
+rechtstreeks vanuit de browser, op één uitzondering na: de windvoorspelling op het
+dashboard komt van Open-Meteo (gratis, geen API-key, gewone `fetch`).
 
 ## Locatie & links
 
@@ -23,8 +24,27 @@ rechtstreeks vanuit de browser.
   `zeilschooluitgeest.nl/elements/docs/voorwaarden.pdf`) — die blijven leidend
   voor de les zelf, het portal linkt er alleen naar (zie "Voorwaarden &
   privacybeleid" hieronder).
-- **Security-auditrapport** (Claude Artifact, alle 4 beveiligingsfases):
+- **Security-auditrapport** (Claude Artifact, de eerste 4 beveiligingsfases —
+  de latere functie-hardening/headers/wachtwoordlengte staan niet in dit
+  rapport, wel hieronder in dit document):
   https://claude.ai/code/artifact/d743b56b-3e78-43a7-a9ab-eae22d10f9b8
+
+## ⚠️ Check dit als eerste in een nieuwe sessie
+
+Dit project is één keer per ongeluk **gelijktijdig vanuit twee losse
+Claude Code-vensters** bewerkt zonder dat beide sessies van elkaar afwisten —
+dezelfde mapnaam, geen git-worktree-isolatie. Dat leverde geen dataverlies op
+(git heeft alles netjes bewaard), maar wel verwarring. Voorkom dat:
+
+```bash
+cd "/Volumes/Expansion/ZHUPortal Claude"
+git status                        # hoort "clean" te zijn
+git log origin/main..HEAD --oneline   # hoort leeg te zijn (alles gepusht)
+git log --oneline -5              # vergelijk met de lijst hieronder — staat er iets nieuws?
+```
+
+Vraag de gebruiker expliciet of er nog een ander venster/sessie open staat op dit
+project voordat je begint, zeker als je hier na een lange pauze weer instapt.
 
 ## Tech-details om te weten
 
@@ -33,9 +53,13 @@ rechtstreeks vanuit de browser.
   regels). De gebruiker pusht zelf via **GitHub Desktop**: hij opent de app, ziet
   de nieuwe commit(s), klikt "Push origin". Vraag dit gewoon als er gepusht moet
   worden — leg niet opnieuw uit hoe GitHub Desktop werkt tenzij nodig.
-- **Vercel deployt automatisch** bij elke push naar `main`. Er staat een
-  `vercel.json` met een rewrite-regel (nodig voor client-side routing met React
-  Router — zonder dat geeft elke pagina behalve `/` een 404 bij verversen).
+- **Vercel deployt automatisch** bij elke push naar `main`. `vercel.json` bevat
+  een rewrite-regel (client-side routing met React Router — zonder dat geeft
+  elke pagina behalve `/` een 404 bij verversen) én een set
+  **beveiligingsheaders** (CSP, X-Frame-Options, X-Content-Type-Options,
+  Referrer-Policy, Permissions-Policy, HSTS). Voeg je een nieuwe externe
+  API/host toe (zoals Open-Meteo), dan moet die ook in de CSP's `connect-src`
+  staan, anders blokkeert de browser het stilletjes.
 - **Dev-server**: `npm run dev` (Vite, poort 5173). Er is een `.claude/launch.json`
   met een `zeilschool-portal`-config in **attach-modus** (`"url":
   "http://localhost:5173"`, geen `runtimeExecutable`) — die laat `preview_start`
@@ -59,24 +83,45 @@ rechtstreeks vanuit de browser.
   kunnen lezen.
 - macOS maakt `._*`-bestanden aan op dit netwerkvolume (AppleDouble). Die staan in
   `.gitignore`, negeer ze.
+- `npm audit` staat op 0 kwetsbaarheden (laatst gecheckt bij de dependency-update
+  in de functie-hardening-commit). Bij twijfel gewoon opnieuw draaien.
 
-## Design-systeem (Fase 6 — volledig vernieuwd)
+## Navigatie & lay-out
+
+**Zijbalk op desktop, onderbalk met iconen op mobiel** — vervangt het oude
+bovenmenu met hamburgermenu volledig (`src/components/Layout.tsx`, groot bestand,
+~430 regels). Geen vaste max-breedte meer op de content — de pagina's zijn nu
+beeldvullend. Belangrijk om te weten voor nieuwe schermen:
+- Nieuwe iconen horen in `src/components/icons.tsx` (inline SVG's, zelfde patroon
+  als de bestaande).
+- Documenttitel per route staat centraal in `src/lib/pageTitles.ts` — nieuwe route
+  toevoegen? Ook hier een regel toevoegen.
+- Toegankelijkheid: er is een skip-link en `aria-current` op de actieve
+  navigatie-link — blijf dat patroon aanhouden.
+- Het tellertje voor openstaande instructeur-aanvragen (badge in de navigatie)
+  komt uit de gedeelde hook `src/lib/usePendingAanvragen.ts` — die wordt ook
+  gebruikt op het dashboard. Nieuwe plekken die dit aantal nodig hebben: gebruik
+  deze hook, bouw het niet opnieuw.
+
+## Design-systeem
 
 - **Lettertype**: Sora (Google Fonts, geladen in `index.html`), toegepast via
   `--font-sans` in `src/index.css`.
 - **Designtokens** staan centraal in `src/index.css` (`@theme`-blok): merkkleuren
-  (`brand-blue*`, `brand-yellow*`), **zijbalkkleuren** (`sidebar`/`sidebar-deep`,
-  zie hieronder), disciplinekleuren (ongewijzigd, blijven leidend), en
-  **statuskleuren** (`status-bevestigd`/`status-wachtend`/`status-geannuleerd`,
-  elk met een `-bg`-variant) — gebruik deze voor elke status-achtige badge, nooit
-  een losse kleur verzinnen.
+  (`brand-blue*`, `brand-yellow*`), disciplinekleuren (ongewijzigd, blijven
+  leidend), en **statuskleuren** (`status-bevestigd`/`status-wachtend`/
+  `status-geannuleerd`, elk met een `-bg`-variant) — gebruik deze voor elke
+  status-achtige badge, nooit een losse kleur verzinnen.
 - **Herbruikbare classes** (ook in `index.css`): `.card` (afgeronde kaart +
   schaduw), `.badge` (pil-vormig label), `.input`, `.btn-primary`, `.btn-accent`.
   Gebruik deze i.p.v. losse `rounded-md border ...`-combinaties te verzinnen.
-- **Iconen**: `src/components/icons.tsx` — kleine inline-SVG's (Check/Clock/X/
-  CalendarPlus/ChevronRight/Calendar/Users/Tag/Compass/Book/User/Logout/Menu/
-  ChartBar). Status wordt altijd getoond als **kleur + icoon samen**, nooit kleur
-  alleen (toegankelijkheid).
+- **Statistiek-componenten**: `StatTile.tsx` (kerncijfer-tegel) en
+  `DisciplineBreakdown.tsx` (verdeling per discipline) — gebruikt op de
+  Statistieken-pagina's en het dashboard, herbruikbaar voor nieuwe cijfer-
+  overzichten. Rekenhulpjes (`lesUren`, `lesPersonen`, `formatUren`) staan in
+  `src/lib/stats.ts`.
+- **Dashboard-componenten**: `HeroLesCard.tsx` (uitgelichte "volgende les"-kaart)
+  en `QuickActionCard.tsx` (tikbare snelkoppeling-kaart) — beide op `Home.tsx`.
 - Radiogroepen zijn overal omgezet naar aanklikbare "chips" (verborgen native
   `<input type="radio">` + gestylede `<label>` met `has-[:checked]:...`) i.p.v.
   kale radiobuttons — zie `Availability.tsx` of `BeschikbaarheidOverzicht.tsx` als
@@ -84,41 +129,41 @@ rechtstreeks vanuit de browser.
 - Er is een globale, zichtbare `:focus-visible`-ring (merkkleurig) voor
   toetsenbordnavigatie, met een uitzondering voor `.input` (die heeft al zijn
   eigen focusring).
+- **Mobiele 2-koloms-grid-valkuil**: een `grid grid-cols-2 gap-4` met daarin een
+  `<input type="date">` overlapte op smalle schermen met het ernaast liggende
+  veld (native datumvelden hebben geen flexibele minimumbreedte). Patroon:
+  `grid-cols-1 sm:grid-cols-2` i.p.v. altijd `grid-cols-2` zodra er een
+  datumveld in een grid staat naast iets anders. Kom je dit patroon ergens
+  nieuws tegen, pas het gelijk zo aan.
 - Blijf dit systeem consistent gebruiken bij nieuwe schermen/componenten i.p.v.
   ad-hoc Tailwind-classes te verzinnen.
 
-### Navigatie (Fase 7 — zijbalk i.p.v. bovenbalk, beeldvullende lay-out)
+## Dashboard (startpagina, `src/pages/Home.tsx`)
 
-Het menu stond eerst bovenaan in een smalle, gecentreerde kolom (`max-w-7xl`).
-Dat is vervangen door een vaste linker zijbalk op desktop, met de content
-beeldvullend (geen buitenste breedtebeperking meer op `<main>` in
-`Layout.tsx` — pagina's die zelf een leesbare breedte willen, zetten daar hun
-eigen `mx-auto max-w-*`-wrapper voor, zoals `Home.tsx`, `Availability.tsx`, etc.
-al deden).
+Rolafhankelijk, geen kale titel meer:
+- **Cursist**: uitgelichte "volgende les"-kaart (dag, tijd, discipline, status,
+  countdown) of een uitnodiging om beschikbaarheid door te geven; zachte
+  herinnering als er voor de komende week nog niets is doorgegeven;
+  duo-partnernaam; "lessen deze maand"; mijlpaal-badge bij een rond aantal
+  gegeven lessen (5, 10, 25, ...); windkracht (Bft) + richting bij de volgende
+  les via Open-Meteo (alleen zichtbaar binnen het voorspelbereik van die
+  gratis API, dus niet te ver in de toekomst).
+- **Instructeur**: melding bij een openstaande aanvraag of een nog niet
+  goedgekeurd account; eigen volgende les met cursistnaam (via de bestaande
+  privacy-RPC `lesgever_mijn_cursisten`, dus geen nieuwe privacylek).
+- **Beheerder**: kerncijfers, een "komende week"-overzicht met
+  instructeur-koppelstatus, een "vandaag"-highlight, en instructeur-aanvragen
+  direct vanaf het dashboard goedkeuren zonder naar het Rooster te hoeven.
 
-- **Desktop** (`src/components/Layout.tsx`): vaste `<aside>` van 240px breed
-  (`bg-gradient-to-b from-sidebar to-sidebar-deep`), met logo, rol-afhankelijke
-  navigatie (`NavLink`, actieve pagina krijgt automatisch `aria-current="page"`
-  + een gevulde blauwe pil), en onderaan een gebruikerskaart + uitlog-knop.
-- **Mobiel**: het oude hamburgermenu is vervangen door een **vaste onderbalk**
-  (iconen + labels, max. 5 tabs getest voor de beheerder) — de navigatie-items
-  plus een "Profiel"-tab die naar `/profiel` linkt. De topbalk op mobiel bevat
-  alleen nog het logo en een avatar-knop die een klein accountmenu opent (naam,
-  rol, uitloggen) — dat menu sluit op Escape (met focus terug naar de
-  avatar-knop) en op een klik erbuiten.
-- **Toegankelijkheid**: een "Spring naar inhoud"-skiplink (zichtbaar bij
-  toetsenbord-focus, linksboven) staat vóór alles in de DOM en springt naar
-  `#main-content`. Beide `<nav>`-landmarks hebben `aria-label="Hoofdnavigatie"`.
-- **Documenttitel per pagina**: centraal geregeld via `src/lib/pageTitles.ts`
-  (route → titel-map) en een `useEffect` in `Layout.tsx` — dus niet per pagina
-  apart instellen, gewoon de map bijwerken bij een nieuwe route.
-- **Teller-badge**: een rood bolletje met aantal op "Rooster" (beheerder) /
-  "Lesgeven" (instructeur) als er iets wacht op actie (openstaande
-  instructeur-aanvragen). Logica zit in `Layout.tsx` (`pendingCount`), simpele
-  losse `count`-query op `lessen`, geen nieuwe RPC nodig — RLS staat dit al toe.
-- Rond hiervan is ook een **mockup als Claude Artifact** gemaakt en goedgekeurd
-  vóór de bouw: https://claude.ai/artifact/R8wV8oFLGWCY5gLhXt8JUH — handig als
-  referentie bij een volgende visuele iteratie.
+## Statistieken
+
+Twee nieuwe pagina's, beide alleen lezend (geen mutaties):
+- `/statistieken` (instructeur-rol) — `src/pages/InstructeurStatistieken.tsx`.
+- `/beheer/statistieken` (beheerder-rol) — `src/pages/admin/Statistieken.tsx`.
+
+Gebruiken `src/lib/stats.ts` voor lesuren/aantal-personen-berekeningen en de
+`StatTile`/`DisciplineBreakdown`-componenten. Geen aparte database-views of
+RPC's voor nodig — rekent client-side over de al opgehaalde `lessen`-rijen.
 
 ## Database — belangrijk
 
@@ -147,12 +192,14 @@ daadwerkelijk zijn uitgevoerd op het live Supabase-project, in deze volgorde:
 016_onthoud_duo_cursus_type.sql
 017_onthoud_lesvorm.sql
 018_instructeur_aanvraag_goedkeuring.sql
+019_functie_hardening.sql       ← search_path vastzetten + EXECUTE intrekken
+020_functie_hardening_deel2.sql ← dode plan_les-overloads opruimen + PUBLIC-grant dicht
 ```
 
 (Fase 1's basis-schema, vóór deze lijst, staat direct in `schema.sql` zelf.)
 
 **Alles hierboven is al uitgevoerd op het live Supabase-project.** Als je nieuwe
-databasewijzigingen maakt: voeg een nieuw doorgenummerd bestand toe (`019_...`),
+databasewijzigingen maakt: voeg een nieuw doorgenummerd bestand toe (`021_...`),
 werk `schema.sql` ook bij (voor een verse installatie), en laat de gebruiker het
 in de Supabase SQL Editor draaien — plak de inhoud altijd ook direct in de chat
 (niet alleen "voer dit bestand uit"), de gebruiker kopieert liever rechtstreeks.
@@ -161,7 +208,11 @@ Let op de `alter type ... add value` valkuil: een nieuwe enum-waarde toevoegen
 moet in een aparte transactie/los "Run"-moment vóórdat je hem in dezelfde script
 gebruikt (zie hoe 012a/012b zijn gesplitst). Let ook op: als je een `check`-
 constraint toevoegt op een kolom die al data bevat, eerst een `update` doen om
-bestaande rijen een geldige waarde te geven (zie 015/016 voor het patroon).
+bestaande rijen een geldige waarde te geven (zie 015/016 voor het patroon). En:
+als je een functie-signature wijzigt (parameters toevoegen/verwijderen),
+`create or replace` vervangt alleen een EXACT gelijke signature — oudere
+overloads met minder parameters blijven anders los rondslingeren als dode code
+die nog steeds via de REST-RPC aanroepbaar is (zie 020 voor het opruimpatroon).
 
 ## Datamodel (kern)
 
@@ -185,17 +236,18 @@ bestaande rijen een geldige waarde te geven (zie 015/016 voor het patroon).
   `annuleer_les`, `meld_aan_als_instructeur`, `meld_af_als_instructeur`) — nooit
   rechtstreeks een `update` vanuit de frontend, behalve voor instructeur-koppeling
   en discipline-wijziging door de beheerder (die mag alles via de gewone
-  RLS-policy).
+  RLS-policy). Deze drie eerste RPC's hebben een vastgezette `search_path` (zie
+  migratie 019) — houd dat aan bij toekomstige `create or replace`.
 - `tweede_persoon` — vaste duo-partner per cursist (uniek op `boeker_id`, dus
   altijd upserten met `onConflict: 'boeker_id'`, nooit los inserten).
 - `labels` — redenen voor verzetten/annuleren, door beheerder zelf beheerbaar.
 
-**Instructeur-aanvraag-flow** (Fase 6 van de functionele uitbouw, los van de
-security-plan-fases): een instructeur klikt "Aanmelden" op een openstaande les →
-dat zet alleen `instructeur_aanvraag_id` (RPC `meld_aan_als_instructeur`, checkt
-ook `instructeur_goedgekeurd` op het account). Pas als de beheerder in het
-rooster op "Goedkeuren" klikt, wordt dat `instructeur_id` (en de aanvraag
-geleegd). Dit is dus een **twee-lagen goedkeuring**: eerst het account
+**Instructeur-aanvraag-flow**: een instructeur klikt "Aanmelden" op een
+openstaande les → dat zet alleen `instructeur_aanvraag_id` (RPC
+`meld_aan_als_instructeur`, checkt ook `instructeur_goedgekeurd` op het
+account). Pas als de beheerder in het rooster (of nu ook: op het dashboard) op
+"Goedkeuren" klikt, wordt dat `instructeur_id` (en de aanvraag geleegd). Dit is
+dus een **twee-lagen goedkeuring**: eerst het account
 (`instructeur_goedgekeurd`, eenmalig door beheerder), dan per les (de aanvraag).
 Niet-goedgekeurde instructeurs mogen de lijst met openstaande lessen wél
 bekijken (geen namen), alleen claimen is geblokkeerd — bewuste keuze van de
@@ -229,9 +281,10 @@ inplannen.
   duo-vorm) — dat wordt op het profiel onthouden en automatisch toegepast bij
   elke nieuwe dag, in plaats van dat er per dag opnieuw gekozen moet worden. Bij
   een duo-lesvorm verschijnt daar ook meteen het duo-partnerformulier.
-- Instructeursrol: eigen beschikbaarheid, aanmelden voor lessen (nu via een
-  **aanvraag-en-goedkeuring-flow**, zie datamodel hierboven), beheerderskoppeling,
-  eigen "Lesgeven"-overzicht met een aparte "Mijn aanvragen"-sectie.
+- Instructeursrol: eigen beschikbaarheid, aanmelden voor lessen (via de
+  aanvraag-en-goedkeuring-flow, zie datamodel hierboven), beheerderskoppeling,
+  eigen "Lesgeven"-overzicht met een aparte "Mijn aanvragen"-sectie, en nu ook
+  een eigen Statistieken-pagina.
 - **Instructeur-account-goedkeuring**: een nieuw gepromoveerde instructeur start
   op "niet goedgekeurd" (`instructeur_goedgekeurd = false`) en kan pas lessen
   claimen na goedkeuring door de beheerder (Cursisten-pagina, instructeur-tab).
@@ -241,57 +294,59 @@ inplannen.
 - Beheerdersrooster gesplitst in aparte tabellen voor cursisten en instructeurs,
   met per lescel een compact statusicoon (✓/⏳/✕) voor instructeur-koppeling.
 - **Wachtwoord vergeten/instellen** (`/wachtwoord-vergeten`,
-  `/wachtwoord-instellen`) — was er eerder niet, cursisten hadden geen
-  zelfbedieningsoptie. Altijd dezelfde generieke melding, ongeacht of het
-  e-mailadres bestaat (voorkomt account-enumeratie).
+  `/wachtwoord-instellen`) — altijd dezelfde generieke melding, ongeacht of het
+  e-mailadres bestaat (voorkomt account-enumeratie). Minimale wachtwoordlengte
+  is 8 tekens (zowel bij registreren als bij wachtwoord instellen).
 - **Algemene voorwaarden & privacybeleid** (`/algemene-voorwaarden`,
   `/privacybeleid`), met kleine footer-links op elke pagina. De voorwaarden
   linken naar de bestaande HISWA-PDF (geen dubbele/tegenstrijdige voorwaarden),
   het privacybeleid is nieuw geschreven — zie boven voor bedrijfsgegevens.
-- **Volledige visuele vernieuwing (Fase 6)** — zie "Design-systeem" hierboven.
+- **Volledige visuele vernieuwing + zijbalk-navigatie + dashboard +
+  statistieken** — zie de aparte secties hierboven.
 - Huisstijl: logo's van Zeilschool Het Uitgeestermeer (transparant gemaakt,
   origineel stond in `logo's/`), kleurenschema afgeleid van de echte website.
-- Responsive: containerbreedte vergroot zodat tabellen op desktop niet meer
-  hoeven te scrollen; brede tabellen (rooster) scrollen horizontaal binnen hun
-  eigen kader, nooit de hele pagina.
-- **Zijbalk-navigatie + beeldvullende lay-out + mobiele onderbalk (Fase 7)** —
-  zie "Navigatie" onder Design-systeem hierboven.
-- **Statistiekpagina's**: `/statistieken` voor de instructeur (eigen gegeven
-  lessen: aantal, uren, cursisten/personen begeleid, per discipline) en
-  `/beheer/statistieken` voor de beheerder (schoolbreed: totalen, per
-  discipline, privéles vs. duo-cursus, planning gepland/verzet/geannuleerd, per
-  instructeur). "Gegeven" = `status = 'gepland'` én `datum <= vandaag` (zie
-  `src/lib/stats.ts` voor de uren-/personenberekening, herbruikt door beide
-  pagina's via `StatTile.tsx` en `DisciplineBreakdown.tsx`). De instructeur-
-  pagina toont bewust **geen namen** van duo-partners of cursisten (alleen
-  aggregaten/tellingen) — dat past bij de bestaande RLS-privacyregels
-  (`tweede_persoon` is sowieso niet leesbaar voor een instructeur).
+  Logo staat in de zijbalk op een witte chip zodat het loskomt van de donkere
+  achtergrond.
+- Responsive: zijbalk op desktop, onderbalk met iconen op mobiel; brede tabellen
+  (rooster) scrollen horizontaal binnen hun eigen kader, nooit de hele pagina;
+  mobiele 2-koloms-grids met een datumveld stapelen nu op smalle schermen (zie
+  Design-systeem hierboven).
 
-## Beveiligingstraject (los actieplan, apart van de functionele fases)
+## Beveiligingstraject
 
 De gebruiker liet een 6-fasen securityplan uitvoeren (audit → RLS-tests →
 foutlogs/enumeratie → rate limiting/captcha/CORS → voorwaarden/privacy →
-design). Kernresultaten, met het volledige rapport op de artifact-link
-hierboven:
+design), en daarna nog een losse hardeningsronde. Kernresultaten:
 
 - **Fase 1-2**: RLS staat aan op alle tabellen, live geverifieerd tegen de
   database, 20/20 penetratietests geslaagd. Geen service role key in de
   broncode of de uitgeleverde JS-bundel (alleen de publieke anon/publishable
-  key, zoals het hoort).
-- **Fase 3**: één echt lek gevonden en gefixt — account-enumeratie via
-  registratie (Supabase's `identities: []`-gedrag bij een bestaand
-  e-mailadres). Fix: stuurt in dat geval stilletjes een reset-mail, toont
-  altijd dezelfde melding. Zie `src/pages/Register.tsx`.
-- **Fase 4**: **belangrijke vondst, nog niet opgelost** — Supabase's
-  ingebouwde e-mail-rate-limit staat op 2/uur voor het hele project (Supabase
-  Dashboard → Authentication → Rate Limits), omdat er geen eigen SMTP-provider
-  gekoppeld is. Verklaart vermoedelijk waarom een test-account ooit nooit
-  bevestigd raakte. Aanbeveling: Resend of Brevo koppelen (Authentication →
-  Emails → SMTP Settings), dan pas de limiet verhogen. **Captcha (Cloudflare
-  Turnstile) stond ook nog open maar de gebruiker wil dit voorlopig laten
-  rusten — niet zelf oppakken tenzij hij er expliciet om vraagt.**
+  key, zoals het hoort). Volledig rapport op de artifact-link hierboven.
+- **Fase 3**: account-enumeratie via registratie gevonden en gefixt (Supabase's
+  `identities: []`-gedrag bij een bestaand e-mailadres) — stuurt in dat geval
+  stilletjes een reset-mail, toont altijd dezelfde melding. Zie
+  `src/pages/Register.tsx`.
+- **Fase 4**: Supabase's ingebouwde e-mail-rate-limit staat op 2/uur voor het
+  hele project (Dashboard → Authentication → Rate Limits) omdat er geen eigen
+  SMTP-provider gekoppeld is — **nog steeds niet opgelost**, zie "Wat nog open
+  staat". Captcha (Cloudflare Turnstile) stond ook nog open maar de gebruiker
+  wil dit laten rusten — niet zelf oppakken tenzij hij er expliciet om vraagt.
 - **Fase 5**: algemene voorwaarden + privacybeleid, zie boven.
-- **Fase 6**: volledige designvernieuwing, zie boven.
+- **Fase 6**: designvernieuwing + later ook zijbalk/dashboard/statistieken, zie
+  boven.
+- **Latere hardeningsronde** (migraties 019/020, niet in het artifact-rapport):
+  `search_path` vastgezet op `plan_les`/`verzet_les`/`annuleer_les`
+  (voorkomt search_path-kaping); drie verouderde `plan_les`-overloads
+  verwijderd die nog los aanroepbaar waren via de REST-RPC met minder
+  validatie; `EXECUTE` op de trigger-only functies `handle_new_user` en
+  `prevent_role_escalation` ingetrokken voor `anon`/`authenticated`/`public`
+  (triggers zelf blijven gewoon werken). Plus: dependency-update (`npm
+  update`, 0 kwetsbaarheden voor en na), en beveiligingsheaders in
+  `vercel.json` (CSP, X-Frame-Options, X-Content-Type-Options,
+  Referrer-Policy, Permissions-Policy, HSTS). Wachtwoord-minimumlengte naar 8
+  tekens (HaveIBeenPwned-leaked-password-check zit achter Supabase's betaalde
+  Pro-plan, dus niet beschikbaar op dit gratis project — dit was het concrete
+  alternatief).
 
 ## Belangrijke gedragsafspraken met de gebruiker (uit dit gesprek)
 
@@ -302,7 +357,8 @@ hierboven:
   concrete bevindingen — er zijn onderweg meerdere echte bugs gevonden door
   daadwerkelijk te testen (bijv. instructeur_id die verloren ging bij verzetten,
   een naamlek via een cursist_id-lookup, een rijhoogte-bug in het rooster die de
-  gebruiker zelf opmerkte). Blijf dat testritme aanhouden.
+  gebruiker zelf opmerkte, overlappende velden op mobiel). Blijf dat testritme
+  aanhouden.
 - Voor kleurwensen ("babyblauw", "subtiel maar aanwezig" voor het logo): de
   gebruiker geeft vaak losse, informele bijsturingen tijdens het werk — reageer
   daar direct op, ook als je middenin iets anders zit.
@@ -316,6 +372,9 @@ hierboven:
 - Bij twijfel over databasekeuzes (bijv. hoe een nieuwe feature het datamodel
   raakt) eerst kort met de gebruiker afstemmen via een paar gerichte vragen,
   in plaats van te gokken — dat is al een paar keer expliciet gewaardeerd.
+- **Nooit ervan uitgaan dat je de enige actieve sessie op dit project bent** —
+  vraag dit na bij een lange pauze of als bestanden onverwacht al gewijzigd
+  blijken (zie de waarschuwing bovenaan dit document).
 
 ## Testaccounts (allemaal in het live Supabase-project)
 
@@ -333,20 +392,23 @@ niet meer om als cursist te testen. `cursistb2` is het huidige bruikbare
 cursist-testaccount (is tussentijds ook even tijdelijk instructeur geweest voor
 een test, maar staat weer op cursist).
 
-**Opruimen nodig**: tijdens het testen van account-enumeratie (security Fase 3)
-is er automatisch een wegwerp-testaccount aangemaakt met een naam als
-`hollenbergmika+sectest-<timestamp>@gmail.com` ("Enum Test" in de
-Cursisten-lijst). Dat mag de gebruiker verwijderen via Supabase → Authentication
-→ Users zodra hij eraan denkt — niet functioneel storend, maar wel ruis in de
-cursistenlijst.
+**Mogelijk nog op te ruimen**: tijdens het testen van account-enumeratie
+(security Fase 3) is er automatisch een wegwerp-testaccount aangemaakt met een
+naam als `hollenbergmika+sectest-<timestamp>@gmail.com` ("Enum Test" in de
+Cursisten-lijst). Check of die nog in Supabase → Authentication → Users staat en
+verwijder 'm dan — niet functioneel storend, maar wel ruis in de cursistenlijst.
+Sinds het wachtwoord-minimum nu 8 tekens is: bestaande testaccounts met een
+korter wachtwoord (bijv. `TestWachtwoord789` is 17 tekens, dus prima) hoeven
+niet aangepast te worden — de nieuwe eis geldt alleen bij het aanmaken/
+resetten, niet met terugwerkende kracht.
 
 ## Wat nog open staat / mogelijke vervolgstappen
 
-- **Captcha (Cloudflare Turnstile)** — stappenplan is met de gebruiker
-  doorgenomen maar hij wil dit voorlopig laten rusten. Niet ongevraagd oppakken.
 - **SMTP-provider koppelen** (Resend/Brevo) om de e-mail-rate-limit van 2/uur op
   te lossen — nog niet gedaan, wel aanbevolen, vraag ernaar als e-mailproblemen
   weer ter sprake komen.
+- **Captcha (Cloudflare Turnstile)** — stappenplan is met de gebruiker
+  doorgenomen maar hij wil dit voorlopig laten rusten. Niet ongevraagd oppakken.
 - **Wegwerp-testaccount opruimen** — zie hierboven.
 - **E-mailnotificaties** — bewust overgeslagen, gebruiker wilde eerst geen
   externe e-maildienst kiezen (hangt ook samen met het SMTP-punt hierboven).
@@ -361,9 +423,10 @@ cursistenlijst.
   via de browser tijdens elke sessie (en één keer met een tijdelijk
   RLS-penetratietestscript, zie "Beveiligingstraject"). Overweeg dit te
   bespreken als het project groter wordt.
-- Check altijd eerst `git status` en `git log origin/main..HEAD` bij een nieuwe
-  sessie om te zien of er lokaal werk klaarstaat dat nog niet gepusht is — de
-  gebruiker pusht zelf via GitHub Desktop (zie "Tech-details" hierboven).
+- Laatste commit (`9e70a6c`) staat **gepusht en live** — geen actie nodig, tenzij
+  er weer nieuw werk lokaal klaarstaat (check altijd eerst `git status` en
+  `git log origin/main..HEAD` bij een nieuwe sessie om te zien of er iets
+  ongepusht is blijven staan — zie ook de waarschuwing bovenaan dit document).
 
 ## Snel starten in een nieuwe sessie
 
@@ -375,4 +438,5 @@ lsof -ti:5173 || (npm run dev > /tmp/vite-dev.log 2>&1 & disown)
 
 Open daarna `http://localhost:5173` in de Browser-pane (via `preview_start` met
 `{name: "zeilschool-portal"}`, die staat in attach-modus), of vraag de gebruiker
-naar zijn eigen inloggegevens voor de beheerder-tests.
+naar zijn eigen inloggegevens voor de beheerder-tests. Vraag ook na of er nog een
+ander venster open staat op dit project (zie bovenaan).
