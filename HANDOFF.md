@@ -48,11 +48,13 @@ project voordat je begint, zeker als je hier na een lange pauze weer instapt.
 
 ## Tech-details om te weten
 
-- **Git push werkt niet via de CLI** in deze sessie — er is geen credential helper
-  ingesteld en de gebruiker wil geen tokens delen (terecht, dat is ook tegen de
-  regels). De gebruiker pusht zelf via **GitHub Desktop**: hij opent de app, ziet
-  de nieuwe commit(s), klikt "Push origin". Vraag dit gewoon als er gepusht moet
-  worden — leg niet opnieuw uit hoe GitHub Desktop werkt tenzij nodig.
+- **Git push via de CLI**: werkte een tijd lang niet (geen credential helper
+  ingesteld) — de gebruiker pushte dan zelf via **GitHub Desktop**. Sinds
+  2026-09-17 werkt `git push` vanuit een Claude Code-sessie soms gewoon
+  (er staat blijkbaar inmiddels een credential helper), maar dat kan per
+  sessie/machine verschillen. Probeer het gewoon en val terug op "vraag de
+  gebruiker om via GitHub Desktop te pushen" als het een auth-fout geeft —
+  neem niet meer automatisch aan dat CLI-push kapot is.
 - **Vercel deployt automatisch** bij elke push naar `main`. `vercel.json` bevat
   een rewrite-regel (client-side routing met React Router — zonder dat geeft
   elke pagina behalve `/` een 404 bij verversen) én een set
@@ -137,6 +139,64 @@ beeldvullend. Belangrijk om te weten voor nieuwe schermen:
   nieuws tegen, pas het gelijk zo aan.
 - Blijf dit systeem consistent gebruiken bij nieuwe schermen/componenten i.p.v.
   ad-hoc Tailwind-classes te verzinnen.
+
+## Animaties (toegevoegd 2026-09-17)
+
+Gedeelde keyframes/utility-classes staan onderaan `src/index.css` (na de
+`prefers-reduced-motion`-regel, die alle animaties op deze pagina ook automatisch
+afvlakt): `.stagger-in` (gestaffelde kaarten-intro), `.animate-badge-pop`,
+`.animate-milestone-pop`, `.animate-ring-pulse`, `.animate-toast-in`,
+`.animate-compass` (kompas-naald-zwaai) en `.animate-spotlight-pulse` (voor de
+rondleiding hieronder). Toegepast op:
+- Dashboard-kaarten glijden gestaffeld in beeld (`stagger-in`-wrapper in elk van
+  de drie rol-varianten in `Home.tsx`).
+- `QuickActionCard.tsx` lift op bij hover.
+- `Home.tsx`'s `InstructeurStatusIcon` toont een vinkje-pop, maar **alleen** voor
+  de les die net is goedgekeurd (`justConfirmedId`-state in `BeheerderHome`) —
+  niet bij elke render, anders zou elk vinkje bij elke data-refresh poppen.
+- `StatTile.tsx` telt op vanaf 0 naar het echte getal (alleen bij een zuiver
+  geheel getal als `value`, dus niet bij `formatUren()`-output zoals "12,5 uur";
+  respecteert `prefers-reduced-motion` ook los van de CSS-regel, want dit is een
+  JS-`requestAnimationFrame`-animatie).
+- `Layout.tsx`: de actieve-indicator in de desktop-zijbalk is een los element dat
+  via `useLayoutEffect` + `offsetTop`/`offsetHeight` van het actieve `NavLink`
+  meet waar hij moet staan (geen library, geen vaste pixelwaarden) — alleen op
+  desktop, de mobiele onderbalk is ongemoeid gelaten.
+- `Home.tsx`'s `BeheerderHome` toont een toast rechtsonder na "Goedkeuren".
+- **`Loader.tsx`** (nieuw, gedeeld component) vervangt de oude losse
+  `animate-spin`-spinner die voorheen op 13 plekken letterlijk gekopieerd stond —
+  nieuwe laadindicator overal? Gebruik `<Loader />` (optioneel `label`/
+  `className`), nooit opnieuw een spinner losstaand opbouwen.
+- `HeroLesCard.tsx`'s mijlpaalbadge (🎉) popt + twee uitdeinende ringen.
+
+## Rondleiding beschikbaarheid (`OnboardingTour.tsx`, toegevoegd 2026-09-17)
+
+Spotlight-rondleiding, alleen op `Availability.tsx`, geschreven voor 60+
+gebruikers (grote tekst, korte zinnen, expliciete "Volgende/Vorige/Sla
+over"-knoppen). Werking:
+- Stappen (`bouwTourStappen()` in `Availability.tsx`) markeren een echt
+  schermdeel via een `targetId` dat met een `id`-attribuut op de bestaande JSX
+  staat (`tour-discipline`, `tour-lesvorm`, `tour-duo-partner`,
+  `tour-kalender`) — `OnboardingTour.tsx` meet zelf de positie via
+  `getBoundingClientRect` en scrollt het in beeld, geen aparte tooltip-library.
+  Nieuwe stap toevoegen? Zet een `id` op het echte element en voeg een entry toe
+  aan de `stappen`-array.
+- Discipline- en lesvorm-stap noemen expliciet `info@zeilschooluitgeest.nl` voor
+  advies bij twijfel — bewuste eis van de gebruiker, laat dat staan.
+- Duo-partner-stap verschijnt alleen als `standaardSoort === 'duo_cursus'` op het
+  moment dat de rondleiding wordt geopend (niet live herberekend tijdens het
+  doorlopen — acceptabel edge-case).
+- Instructeurs krijgen een kortere versie (geen discipline/lesvorm/duo-stappen,
+  want die kiezen zij niet) — zie de `isInstructeur`-tak in `bouwTourStappen()`.
+- Onthouden via `localStorage`-sleutel `zhu_tour_beschikbaarheid_v1` (opent
+  automatisch, één keer, bij een nieuwe gebruiker); wrapped in try/catch voor
+  privénavigatie.
+- **Opnieuw starten**: een "Rondleiding"-knop staat in `Layout.tsx`, in de
+  desktop-zijbalk (boven de naam/Uitloggen-knop) én in het mobiele
+  accountmenu (boven Uitloggen) — beide alleen zichtbaar voor cursist/
+  instructeur-rollen (niet beheerder, niet gearchiveerd). De knop navigeert
+  naar `/beschikbaarheid` met `state: { openTour: true }`; `Availability.tsx`
+  leest dat via `useLocation` en opent de tour, ook vanaf een andere pagina.
 
 ## Dashboard (startpagina, `src/pages/Home.tsx`)
 
@@ -392,6 +452,17 @@ niet meer om als cursist te testen. `cursistb2` is het huidige bruikbare
 cursist-testaccount (is tussentijds ook even tijdelijk instructeur geweest voor
 een test, maar staat weer op cursist).
 
+**Let op — accounts kunnen tussentijds gearchiveerd raken**: op 2026-09-17 bleken
+zowel `cursista` als `cursistb2` gearchiveerd te staan (`profiles.gearchiveerd =
+true`), waardoor inloggen alleen de "Account gearchiveerd"-melding toonde —
+niet iets dat deze sessie zelf heeft veroorzaakt, waarschijnlijk eerder
+handmatig getest. `cursistb2` is met toestemming van de gebruiker via Supabase
+(`update profiles set gearchiveerd = false where id = (select id from
+auth.users where email = '...')`) weer geactiveerd om de UI live te kunnen
+testen. Check dus bij twijfel eerst `select rol, gearchiveerd, count(*) from
+profiles group by rol, gearchiveerd` (geen PII, mag altijd) voordat je aanneemt
+dat een testaccount werkt.
+
 **Mogelijk nog op te ruimen**: tijdens het testen van account-enumeratie
 (security Fase 3) is er automatisch een wegwerp-testaccount aangemaakt met een
 naam als `hollenbergmika+sectest-<timestamp>@gmail.com` ("Enum Test" in de
@@ -423,7 +494,8 @@ resetten, niet met terugwerkende kracht.
   via de browser tijdens elke sessie (en één keer met een tijdelijk
   RLS-penetratietestscript, zie "Beveiligingstraject"). Overweeg dit te
   bespreken als het project groter wordt.
-- Laatste commit (`9e70a6c`) staat **gepusht en live** — geen actie nodig, tenzij
+- Laatste commit (`291db02`, animaties + rondleiding beschikbaarheid) staat
+  **gepusht en live** — geen actie nodig, tenzij
   er weer nieuw werk lokaal klaarstaat (check altijd eerst `git status` en
   `git log origin/main..HEAD` bij een nieuwe sessie om te zien of er iets
   ongepusht is blijven staan — zie ook de waarschuwing bovenaan dit document).
