@@ -1,21 +1,28 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ReactElement, ReactNode } from 'react'
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { PAGE_TITLES } from '../lib/pageTitles'
 import { usePendingAanvragen } from '../lib/usePendingAanvragen'
+import { buildAvailabilityTourSteps } from '../lib/tourSteps'
+import { OnboardingTour } from './OnboardingTour'
 import {
   BookIcon,
   CalendarIcon,
   ChartBarIcon,
   CompassIcon,
   HelpIcon,
+  HomeIcon,
   LogoutIcon,
   TagIcon,
   UserIcon,
   UsersIcon,
 } from './icons'
+
+const TOUR_OPGESLAGEN_KEY = 'zhu_tour_beschikbaarheid_v1'
+/** Hoe lang na het aanmaken van een account de rondleiding nog automatisch mag starten. */
+const NIEUW_ACCOUNT_VENSTER_MS = 24 * 60 * 60 * 1000
 
 type NavItem = {
   to: string
@@ -31,9 +38,12 @@ const ROLE_LABELS: Record<string, string> = {
   beheerder: 'Beheerder',
 }
 
+const HOME_ITEM: NavItem = { to: '/', label: 'Home', icon: HomeIcon }
+
 function navItemsForRole(rol: string | undefined): NavItem[] {
   if (rol === 'beheerder') {
     return [
+      HOME_ITEM,
       { to: '/beheer/cursisten', label: 'Cursisten', icon: UsersIcon },
       { to: '/beheer/beschikbaarheid', label: 'Rooster', icon: CalendarIcon, showBadge: true },
       { to: '/beheer/labels', label: 'Labels', icon: TagIcon },
@@ -42,12 +52,14 @@ function navItemsForRole(rol: string | undefined): NavItem[] {
   }
   if (rol === 'instructeur') {
     return [
+      HOME_ITEM,
       { to: '/beschikbaarheid', label: 'Beschikbaarheid', icon: CalendarIcon },
       { to: '/lesgeven', label: 'Lesgeven', icon: CompassIcon, showBadge: true },
       { to: '/statistieken', label: 'Statistieken', icon: ChartBarIcon },
     ]
   }
   return [
+    HOME_ITEM,
     { to: '/beschikbaarheid', label: 'Beschikbaarheid', icon: CalendarIcon },
     { to: '/mijn-lessen', label: 'Mijn lessen', icon: BookIcon },
   ]
@@ -144,6 +156,65 @@ export function Layout({ children }: { children: ReactNode }) {
   const primaryNav = archived ? [] : navItemsForRole(profile?.rol)
   const profileItem: NavItem = { to: '/profiel', label: 'Mijn gegevens', icon: UserIcon }
   const navItems = archived ? [] : [...primaryNav, profileItem]
+  // De mobiele onderbalk had al weinig ruimte — Home staat daar niet apart in,
+  // de topbalk-logo linkt al naar "/" op mobiel.
+  const mobileNavItems = navItems.filter((item) => item.to !== '/')
+
+  const kanRondleidingZien = !archived && profile?.rol !== 'beheerder'
+  const tourSteps = useMemo(
+    () =>
+      buildAvailabilityTourSteps({
+        isInstructeur: profile?.rol === 'instructeur',
+        metDuoStap: profile?.standaard_soort === 'duo_cursus',
+      }),
+    [profile?.rol, profile?.standaard_soort],
+  )
+  const [tourOpen, setTourOpen] = useState(false)
+  const [tourStep, setTourStep] = useState(0)
+
+  const startTour = () => {
+    setTourStep(0)
+    setTourOpen(true)
+  }
+
+  const sluitTour = () => {
+    setTourOpen(false)
+    setTourStep(0)
+    try {
+      window.localStorage.setItem(TOUR_OPGESLAGEN_KEY, '1')
+    } catch {
+      // negeren — dan verschijnt de rondleiding een volgende keer opnieuw, niet erg.
+    }
+  }
+
+  const volgendeTourStap = () => {
+    if (tourStep >= tourSteps.length - 1) {
+      sluitTour()
+      return
+    }
+    setTourStep((s) => s + 1)
+  }
+
+  const vorigeTourStap = () => setTourStep((s) => Math.max(0, s - 1))
+
+  // Rondleiding start alleen vanzelf voor een net aangemaakt account (binnen
+  // NIEUW_ACCOUNT_VENSTER_MS na `aangemaakt_op`) en maar één keer — daarna alleen
+  // nog handmatig via de "Rondleiding"-knop hieronder.
+  useEffect(() => {
+    if (!kanRondleidingZien || !profile?.aangemaakt_op) return
+    let gezien = true
+    try {
+      gezien = window.localStorage.getItem(TOUR_OPGESLAGEN_KEY) === '1'
+    } catch {
+      return
+    }
+    if (gezien) return
+    const leeftijdMs = Date.now() - new Date(profile.aangemaakt_op).getTime()
+    if (leeftijdMs > NIEUW_ACCOUNT_VENSTER_MS) return
+    const timer = window.setTimeout(startTour, 700)
+    return () => window.clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kanRondleidingZien, profile?.aangemaakt_op])
 
   // Schuivende actieve-indicator in de zijbalk: meet de positie van het actieve
   // nav-item na elke render zodat het losse balkje er precies achter past, i.p.v.
@@ -213,6 +284,7 @@ export function Layout({ children }: { children: ReactNode }) {
               <NavLink
                 key={item.to}
                 to={item.to}
+                end={item.to === '/'}
                 ref={(el) => {
                   navItemRefs.current[item.to] = el
                 }}
@@ -235,10 +307,10 @@ export function Layout({ children }: { children: ReactNode }) {
 
         {profile && (
           <div className="flex flex-col gap-2">
-            {!archived && profile.rol !== 'beheerder' && (
+            {kanRondleidingZien && (
               <button
                 type="button"
-                onClick={() => navigate('/beschikbaarheid', { state: { openTour: true } })}
+                onClick={startTour}
                 title="Rondleiding opnieuw starten"
                 className="flex items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-white/10 px-3 py-2 text-[12.5px] font-semibold text-brand-blue-light/90 transition-colors duration-150 hover:bg-white/10 hover:text-white"
               >
@@ -304,13 +376,13 @@ export function Layout({ children }: { children: ReactNode }) {
                     {profile.voornaam} {profile.achternaam}
                   </p>
                   <p className="mb-3 text-xs font-medium uppercase tracking-wide text-slate-400">{roleLabel}</p>
-                  {!archived && profile.rol !== 'beheerder' && (
+                  {kanRondleidingZien && (
                     <button
                       type="button"
                       role="menuitem"
                       onClick={() => {
                         setAvatarMenuOpen(false)
-                        navigate('/beschikbaarheid', { state: { openTour: true } })
+                        startTour()
                       }}
                       className="mb-2 flex w-full items-center justify-center gap-2 rounded-full border border-slate-200 px-3.5 py-2 text-sm font-semibold text-brand-blue-dark transition-colors duration-150 hover:bg-brand-blue-light/20"
                     >
@@ -337,12 +409,12 @@ export function Layout({ children }: { children: ReactNode }) {
       </div>
 
       {/* Mobiele onderbalk — vervangt het oude hamburgermenu */}
-      {navItems.length > 0 && (
+      {mobileNavItems.length > 0 && (
         <nav
           aria-label="Hoofdnavigatie"
           className="fixed inset-x-0 bottom-0 z-20 flex items-stretch justify-around border-t border-brand-blue-light/20 bg-sidebar px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5 shadow-[0_-2px_12px_rgba(0,0,0,0.25)] sm:hidden"
         >
-          {navItems.map((item) => {
+          {mobileNavItems.map((item) => {
             const Icon = item.icon
             const badge = item.showBadge && pendingCount > 0 ? pendingCount : undefined
             return (
@@ -354,6 +426,10 @@ export function Layout({ children }: { children: ReactNode }) {
             )
           })}
         </nav>
+      )}
+
+      {tourOpen && (
+        <OnboardingTour steps={tourSteps} step={tourStep} onNext={volgendeTourStap} onPrev={vorigeTourStap} onSkip={sluitTour} />
       )}
     </div>
   )

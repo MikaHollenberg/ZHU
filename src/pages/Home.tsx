@@ -456,7 +456,7 @@ export function Home() {
   const { profile } = useAuth()
 
   return (
-    <div className="mx-auto max-w-4xl">
+    <div id="tour-home" className="mx-auto max-w-4xl scroll-mt-4">
       <Greeting voornaam={profile?.voornaam} />
       {profile?.rol === 'beheerder' ? (
         <BeheerderHome />

@@ -149,6 +149,15 @@ export function ChartBarIcon({ className }: IconProps) {
   )
 }
 
+export function HomeIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5} className={className} aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 9.5 10 3l7 6.5" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 8v8.5a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V8" />
+    </svg>
+  )
+}
+
 export function HelpIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5} className={className} aria-hidden="true">
