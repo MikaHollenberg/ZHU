@@ -260,7 +260,7 @@ export function Layout({ children }: { children: ReactNode }) {
       <SkipLink />
 
       {/* Desktop zijbalk */}
-      <aside className="sticky top-0 hidden h-screen w-60 flex-shrink-0 flex-col gap-5 bg-gradient-to-b from-sidebar to-sidebar-deep px-3.5 py-5 sm:flex">
+      <aside className="sticky top-0 z-20 hidden h-screen w-60 flex-shrink-0 flex-col gap-5 bg-gradient-to-b from-sidebar to-sidebar-deep px-3.5 py-5 sm:flex">
         <div className="flex items-center justify-between gap-2 border-b-2 border-brand-blue-light/30 px-2 pb-4">
           <Link to="/" className="flex min-w-0 items-center gap-3 text-white">
             <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-white shadow-[0_2px_8px_rgba(0,0,0,0.25)]">
