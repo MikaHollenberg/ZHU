@@ -11,11 +11,14 @@ export function StatTile({
   value,
   sub,
   badge,
+  vergelijking,
 }: {
   label: string
   value: string
   sub?: string
   badge?: number
+  /** Optioneel: toont een deltaregel t.o.v. een vorige periode (zie PeriodeKiezer). */
+  vergelijking?: { huidig: number; vorig: number }
 }) {
   const doel = HEEL_GETAL.test(value) ? parseInt(value, 10) : null
   const [weergave, setWeergave] = useState(doel === null ? value : '0')
@@ -56,6 +59,7 @@ export function StatTile({
       <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
       <p className="mt-1 text-2xl font-bold tabular-nums text-brand-blue-dark">{weergave}</p>
       {sub && <p className="mt-0.5 text-xs text-slate-400">{sub}</p>}
+      {vergelijking && <DeltaRegel {...vergelijking} />}
       {badge !== undefined && badge > 0 && (
         <span
           aria-label={`${badge} openstaand`}
@@ -65,5 +69,25 @@ export function StatTile({
         </span>
       )}
     </div>
+  )
+}
+
+function DeltaRegel({ huidig, vorig }: { huidig: number; vorig: number }) {
+  const verschil = huidig - vorig
+  const pct = vorig > 0 ? Math.round((verschil / vorig) * 100) : null
+
+  if (verschil === 0) {
+    return <p className="mt-1 text-xs text-slate-400">→ gelijk aan vorige periode</p>
+  }
+
+  const pijl = verschil > 0 ? '↑' : '↓'
+  const pctTekst = pct !== null ? ` (${verschil > 0 ? '+' : ''}${pct}%)` : ''
+
+  return (
+    <p className="mt-1 text-xs text-slate-400">
+      {pijl} {verschil > 0 ? '+' : ''}
+      {verschil}
+      {pctTekst} t.o.v. vorige periode
+    </p>
   )
 }

@@ -2,9 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabase'
 import { DISCIPLINES } from '../../lib/disciplines'
 import { lesUren, formatUren } from '../../lib/stats'
+import { lesInPeriode } from '../../lib/periode'
+import type { Periode } from '../../lib/periode'
 import { StatTile } from '../../components/StatTile'
 import { DisciplineBreakdown } from '../../components/DisciplineBreakdown'
 import { Loader } from '../../components/Loader'
+import { PeriodeKiezer } from '../../components/PeriodeKiezer'
 import type { Les } from '../../types/lesson'
 
 interface InstructeurRow {
@@ -18,6 +21,8 @@ export function AdminStatistieken() {
   const [instructeurs, setInstructeurs] = useState<InstructeurRow[]>([])
   const [actieveCursisten, setActieveCursisten] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [periode, setPeriode] = useState<Periode>({ type: 'alles', anker: new Date() })
+  const [vergelijkPeriode, setVergelijkPeriode] = useState<Periode | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -42,12 +47,12 @@ export function AdminStatistieken() {
     load()
   }, [])
 
-  const stats = useMemo(() => {
+  const berekenStats = (lessenInPeriode: Les[]) => {
     const vandaag = new Date().toISOString().slice(0, 10)
-    const gegeven = lessen.filter((l) => l.status === 'gepland' && l.datum <= vandaag)
-    const toekomstig = lessen.filter((l) => l.status === 'gepland' && l.datum > vandaag)
-    const verzet = lessen.filter((l) => l.status === 'verzet')
-    const geannuleerd = lessen.filter((l) => l.status === 'geannuleerd')
+    const gegeven = lessenInPeriode.filter((l) => l.status === 'gepland' && l.datum <= vandaag)
+    const toekomstig = lessenInPeriode.filter((l) => l.status === 'gepland' && l.datum > vandaag)
+    const verzet = lessenInPeriode.filter((l) => l.status === 'verzet')
+    const geannuleerd = lessenInPeriode.filter((l) => l.status === 'geannuleerd')
 
     const totaalUren = gegeven.reduce((som, l) => som + lesUren(l), 0)
     const duoCount = gegeven.filter((l) => l.soort === 'duo_cursus').length
@@ -74,7 +79,20 @@ export function AdminStatistieken() {
       .sort((a, b) => b.aantal - a.aantal)
 
     return { gegeven, toekomstig, verzet, geannuleerd, totaalUren, duoCount, perDiscipline, perInstructeur }
-  }, [lessen, instructeurs])
+  }
+
+  const stats = useMemo(() => {
+    const inPeriode = lessen.filter((l) => lesInPeriode(l.datum, periode))
+    return berekenStats(inPeriode)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lessen, instructeurs, periode])
+
+  const vergelijkStats = useMemo(() => {
+    if (!vergelijkPeriode) return null
+    const inVergelijkPeriode = lessen.filter((l) => lesInPeriode(l.datum, vergelijkPeriode))
+    return berekenStats(inVergelijkPeriode)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lessen, instructeurs, vergelijkPeriode])
 
   if (loading) {
     return <Loader />
@@ -85,9 +103,28 @@ export function AdminStatistieken() {
       <h1 className="mb-1 text-2xl font-bold tracking-tight text-brand-blue-dark">Statistieken</h1>
       <p className="mb-6 text-sm text-slate-500">Overzicht van alle gegeven lessen op de zeilschool.</p>
 
+      <PeriodeKiezer
+        periode={periode}
+        onChange={setPeriode}
+        vergelijkPeriode={vergelijkPeriode}
+        onVergelijkPeriodeChange={setVergelijkPeriode}
+      />
+
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatTile label="Gegeven lessen" value={String(stats.gegeven.length)} />
-        <StatTile label="Lesuren" value={formatUren(stats.totaalUren)} />
+        <StatTile
+          label="Gegeven lessen"
+          value={String(stats.gegeven.length)}
+          vergelijking={vergelijkStats ? { huidig: stats.gegeven.length, vorig: vergelijkStats.gegeven.length } : undefined}
+        />
+        <StatTile
+          label="Lesuren"
+          value={formatUren(stats.totaalUren)}
+          vergelijking={
+            vergelijkStats
+              ? { huidig: Math.round(stats.totaalUren * 10) / 10, vorig: Math.round(vergelijkStats.totaalUren * 10) / 10 }
+              : undefined
+          }
+        />
         <StatTile label="Actieve cursisten" value={String(actieveCursisten)} />
         <StatTile label="Actieve instructeurs" value={String(instructeurs.length)} />
       </div>

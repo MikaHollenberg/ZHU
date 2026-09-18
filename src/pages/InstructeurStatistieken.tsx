@@ -3,9 +3,12 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { DISCIPLINES } from '../lib/disciplines'
 import { lesPersonen, lesUren, formatUren } from '../lib/stats'
+import { lesInPeriode } from '../lib/periode'
+import type { Periode } from '../lib/periode'
 import { StatTile } from '../components/StatTile'
 import { DisciplineBreakdown } from '../components/DisciplineBreakdown'
 import { DisciplineBadge } from '../components/DisciplineBadge'
+import { PeriodeKiezer } from '../components/PeriodeKiezer'
 import { CalendarPlusIcon } from '../components/icons'
 import { Loader } from '../components/Loader'
 import type { Les } from '../types/lesson'
@@ -23,6 +26,8 @@ export function InstructeurStatistieken() {
   const { user } = useAuth()
   const [lessen, setLessen] = useState<Les[]>([])
   const [loading, setLoading] = useState(true)
+  const [periode, setPeriode] = useState<Periode>({ type: 'alles', anker: new Date() })
+  const [vergelijkPeriode, setVergelijkPeriode] = useState<Periode | null>(null)
 
   useEffect(() => {
     if (!user) return
@@ -40,13 +45,13 @@ export function InstructeurStatistieken() {
       })
   }, [user])
 
-  const stats = useMemo(() => {
-    const totaalUren = lessen.reduce((som, l) => som + lesUren(l), 0)
-    const totaalPersonen = lessen.reduce((som, l) => som + lesPersonen(l), 0)
-    const uniekeCursisten = new Set(lessen.map((l) => l.cursist_id)).size
-    const duoCount = lessen.filter((l) => l.soort === 'duo_cursus').length
+  const berekenStats = (lessenLijst: Les[]) => {
+    const totaalUren = lessenLijst.reduce((som, l) => som + lesUren(l), 0)
+    const totaalPersonen = lessenLijst.reduce((som, l) => som + lesPersonen(l), 0)
+    const uniekeCursisten = new Set(lessenLijst.map((l) => l.cursist_id)).size
+    const duoCount = lessenLijst.filter((l) => l.soort === 'duo_cursus').length
     const perDiscipline = DISCIPLINES.map((d) => {
-      const vanDiscipline = lessen.filter((l) => l.discipline === d)
+      const vanDiscipline = lessenLijst.filter((l) => l.discipline === d)
       return {
         discipline: d,
         aantal: vanDiscipline.length,
@@ -54,8 +59,17 @@ export function InstructeurStatistieken() {
       }
     }).filter((r) => r.aantal > 0)
 
-    return { totaalUren, totaalPersonen, uniekeCursisten, perDiscipline, duoCount }
-  }, [lessen])
+    return { totaalUren, totaalPersonen, uniekeCursisten, perDiscipline, duoCount, aantal: lessenLijst.length }
+  }
+
+  const lessenInPeriode = useMemo(() => lessen.filter((l) => lesInPeriode(l.datum, periode)), [lessen, periode])
+  const stats = useMemo(() => berekenStats(lessenInPeriode), [lessenInPeriode])
+
+  const vergelijkStats = useMemo(() => {
+    if (!vergelijkPeriode) return null
+    return berekenStats(lessen.filter((l) => lesInPeriode(l.datum, vergelijkPeriode)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lessen, vergelijkPeriode])
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -70,35 +84,65 @@ export function InstructeurStatistieken() {
         </p>
       ) : (
         <>
-          <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <StatTile label="Gegeven lessen" value={String(lessen.length)} />
-            <StatTile label="Lesuren" value={formatUren(stats.totaalUren)} />
-            <StatTile label="Cursisten begeleid" value={String(stats.uniekeCursisten)} />
-            <StatTile
-              label="Personen lesgegeven"
-              value={String(stats.totaalPersonen)}
-              sub={stats.duoCount > 0 ? `waarvan ${stats.duoCount} duo-cursus${stats.duoCount === 1 ? '' : 'sen'}` : undefined}
-            />
-          </div>
+          <PeriodeKiezer
+            periode={periode}
+            onChange={setPeriode}
+            vergelijkPeriode={vergelijkPeriode}
+            onVergelijkPeriodeChange={setVergelijkPeriode}
+          />
 
-          <div className="mb-8">
-            <DisciplineBreakdown rows={stats.perDiscipline} />
-          </div>
+          {lessenInPeriode.length === 0 ? (
+            <p className="rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-center text-slate-400">
+              Geen lessen in deze periode.
+            </p>
+          ) : (
+            <>
+              <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <StatTile
+                  label="Gegeven lessen"
+                  value={String(stats.aantal)}
+                  vergelijking={vergelijkStats ? { huidig: stats.aantal, vorig: vergelijkStats.aantal } : undefined}
+                />
+                <StatTile
+                  label="Lesuren"
+                  value={formatUren(stats.totaalUren)}
+                  vergelijking={
+                    vergelijkStats
+                      ? {
+                          huidig: Math.round(stats.totaalUren * 10) / 10,
+                          vorig: Math.round(vergelijkStats.totaalUren * 10) / 10,
+                        }
+                      : undefined
+                  }
+                />
+                <StatTile label="Cursisten begeleid" value={String(stats.uniekeCursisten)} />
+                <StatTile
+                  label="Personen lesgegeven"
+                  value={String(stats.totaalPersonen)}
+                  sub={stats.duoCount > 0 ? `waarvan ${stats.duoCount} duo-cursus${stats.duoCount === 1 ? '' : 'sen'}` : undefined}
+                />
+              </div>
 
-          <h2 className="mb-3 text-base font-semibold text-slate-800">Gegeven lessen</h2>
-          <ul className="space-y-2">
-            {lessen.map((les) => (
-              <li key={les.id} className="card flex flex-wrap items-center justify-between gap-3 px-4 py-3.5">
-                <div className="min-w-0">
-                  <p className="font-medium capitalize text-slate-800">{formatDatum(les.datum)}</p>
-                  <p className="text-sm text-slate-500">
-                    {les.starttijd.slice(0, 5)} - {les.eindtijd.slice(0, 5)} · {formatUren(lesUren(les))}
-                  </p>
-                </div>
-                <DisciplineBadge discipline={les.discipline} />
-              </li>
-            ))}
-          </ul>
+              <div className="mb-8">
+                <DisciplineBreakdown rows={stats.perDiscipline} />
+              </div>
+
+              <h2 className="mb-3 text-base font-semibold text-slate-800">Gegeven lessen</h2>
+              <ul className="space-y-2">
+                {lessenInPeriode.map((les) => (
+                  <li key={les.id} className="card flex flex-wrap items-center justify-between gap-3 px-4 py-3.5">
+                    <div className="min-w-0">
+                      <p className="font-medium capitalize text-slate-800">{formatDatum(les.datum)}</p>
+                      <p className="text-sm text-slate-500">
+                        {les.starttijd.slice(0, 5)} - {les.eindtijd.slice(0, 5)} · {formatUren(lesUren(les))}
+                      </p>
+                    </div>
+                    <DisciplineBadge discipline={les.discipline} />
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </>
       )}
     </div>
