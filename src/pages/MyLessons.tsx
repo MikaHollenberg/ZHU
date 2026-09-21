@@ -5,13 +5,14 @@ import { STATUS_LABELS, STATUS_STYLES } from '../lib/lesStatus'
 import { lesUren, formatUren } from '../lib/stats'
 import { haalHistorischWeer } from '../lib/weer'
 import { DisciplineBadge } from '../components/DisciplineBadge'
+import { VaardagenKalender } from '../components/VaardagenKalender'
 import { CalendarPlusIcon, ChatBubbleIcon, CheckIcon, ClockIcon, XIcon } from '../components/icons'
 import { Loader } from '../components/Loader'
 import type { Les, LesStatus } from '../types/lesson'
 
 interface LesMetLabel extends Les {
   label: { naam: string } | null
-  tweede_persoon: { voornaam: string; achternaam: string } | null
+  tweede_persoon: { voornaam: string; achternaam: string; teamnaam: string | null } | null
 }
 
 const STATUS_ICON: Record<LesStatus, typeof CheckIcon> = {
@@ -53,7 +54,9 @@ function LesItem({ les }: { les: LesMetLabel }) {
           </p>
           <p className="text-sm text-slate-500">
             {les.soort === 'duo_cursus'
-              ? `Duo-cursus${les.tweede_persoon ? ` met ${les.tweede_persoon.voornaam} ${les.tweede_persoon.achternaam}` : ''}`
+              ? `Duo-cursus${les.tweede_persoon?.teamnaam ? ` "${les.tweede_persoon.teamnaam}"` : ''}${
+                  les.tweede_persoon ? ` met ${les.tweede_persoon.voornaam} ${les.tweede_persoon.achternaam}` : ''
+                }`
               : 'Privéles'}
           </p>
           <div className="mt-1.5">
@@ -115,7 +118,7 @@ interface SeizoenStats {
   stormvaarder: boolean
 }
 
-function SeizoenOverzicht({ jaar, stats }: { jaar: number; stats: SeizoenStats }) {
+function SeizoenOverzicht({ jaar, stats, datums }: { jaar: number; stats: SeizoenStats; datums: string[] }) {
   return (
     <div className="card mb-6 overflow-hidden">
       <div className="bg-gradient-to-br from-brand-blue to-brand-blue-dark px-5 py-5 text-white">
@@ -154,6 +157,9 @@ function SeizoenOverzicht({ jaar, stats }: { jaar: number; stats: SeizoenStats }
           </span>
         </div>
       )}
+      <div className="border-t border-slate-100 px-5 py-3.5">
+        <VaardagenKalender jaar={jaar} datums={datums} />
+      </div>
     </div>
   )
 }
@@ -178,7 +184,7 @@ export function MyLessons() {
     if (!user) return
     supabase
       .from('lessen')
-      .select('*, label:labels(naam), tweede_persoon:tweede_persoon(voornaam, achternaam)')
+      .select('*, label:labels(naam), tweede_persoon:tweede_persoon(voornaam, achternaam, teamnaam)')
       .eq('cursist_id', user.id)
       .order('datum', { ascending: true })
       .then(({ data }) => {
@@ -253,7 +259,9 @@ export function MyLessons() {
         <Loader />
       ) : (
         <>
-          {seizoen && <SeizoenOverzicht jaar={ditJaar} stats={seizoen} />}
+          {seizoen && (
+            <SeizoenOverzicht jaar={ditJaar} stats={seizoen} datums={gegevenDitJaar.map((l) => l.datum)} />
+          )}
 
           <h2 className="mb-3 text-base font-semibold text-slate-800">Toekomstige lessen</h2>
           {toekomstig.length === 0 ? (

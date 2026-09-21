@@ -200,6 +200,16 @@ export function HomeIcon({ className }: IconProps) {
   )
 }
 
+export function InfoIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5} className={className} aria-hidden="true">
+      <circle cx="10" cy="10" r="7.2" />
+      <path strokeLinecap="round" d="M10 9.2v4.6" />
+      <circle cx="10" cy="6.6" r="0.9" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
 export function HelpIcon({ className }: IconProps) {
   return (
     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth={1.5} className={className} aria-hidden="true">

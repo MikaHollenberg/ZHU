@@ -9,6 +9,7 @@ import { buildAvailabilityTourSteps } from '../lib/tourSteps'
 import { useMeldingen } from '../lib/useMeldingen'
 import { OnboardingTour } from './OnboardingTour'
 import { MeldingenBel } from './MeldingenBel'
+import { EasterEggBoat } from './EasterEggBoat'
 import {
   BookIcon,
   CalendarIcon,
@@ -16,6 +17,7 @@ import {
   CompassIcon,
   HelpIcon,
   HomeIcon,
+  InfoIcon,
   LogoutIcon,
   TagIcon,
   UserIcon,
@@ -58,12 +60,14 @@ function navItemsForRole(rol: string | undefined): NavItem[] {
       { to: '/beschikbaarheid', label: 'Beschikbaarheid', icon: CalendarIcon },
       { to: '/lesgeven', label: 'Lesgeven', icon: CompassIcon, showBadge: true },
       { to: '/statistieken', label: 'Statistieken', icon: ChartBarIcon },
+      { to: '/handige-info', label: 'Handige info', icon: InfoIcon },
     ]
   }
   return [
     HOME_ITEM,
     { to: '/beschikbaarheid', label: 'Beschikbaarheid', icon: CalendarIcon },
     { to: '/mijn-lessen', label: 'Mijn lessen', icon: BookIcon },
+    { to: '/handige-info', label: 'Handige info', icon: InfoIcon },
   ]
 }
 
@@ -116,6 +120,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const avatarMenuRef = useRef<HTMLDivElement>(null)
   const navItemRefs = useRef<Record<string, HTMLAnchorElement | null>>({})
   const [navIndicator, setNavIndicator] = useState<{ top: number; height: number } | null>(null)
+  const [easterEggActief, setEasterEggActief] = useState(false)
 
   const handleLogout = async () => {
     setAvatarMenuOpen(false)
@@ -128,6 +133,14 @@ export function Layout({ children }: { children: ReactNode }) {
     const naam = PAGE_TITLES[location.pathname]
     document.title = naam ? `${naam} — ZHU Zeilles` : 'ZHU Zeilles'
   }, [location.pathname])
+
+  // Easter egg (#6): klik op het logo en er vaart een bootje over het scherm.
+  // Normale navigatie naar "/" blijft gewoon werken — dit telt alleen mee.
+  const handleLogoClick = () => {
+    if (easterEggActief) return
+    setEasterEggActief(true)
+    window.setTimeout(() => setEasterEggActief(false), 6300)
+  }
 
   // Mobiel accountmenu (#3): Escape sluit het en zet focus terug op de knop,
   // en een klik buiten het menu sluit het ook.
@@ -258,11 +271,12 @@ export function Layout({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-brand-blue-light/10 sm:flex">
       <SkipLink />
+      {easterEggActief && <EasterEggBoat />}
 
       {/* Desktop zijbalk */}
       <aside className="sticky top-0 z-20 hidden h-screen w-60 flex-shrink-0 flex-col gap-5 bg-gradient-to-b from-sidebar to-sidebar-deep px-3.5 py-5 sm:flex">
         <div className="flex items-center justify-between gap-2 border-b-2 border-brand-blue-light/30 px-2 pb-4">
-          <Link to="/" className="flex min-w-0 items-center gap-3 text-white">
+          <Link to="/" onClick={handleLogoClick} className="flex min-w-0 items-center gap-3 text-white">
             <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-white shadow-[0_2px_8px_rgba(0,0,0,0.25)]">
               <img src="/logo-mark.png" alt="" className="h-7 w-7 object-contain" />
             </span>
@@ -362,7 +376,7 @@ export function Layout({ children }: { children: ReactNode }) {
       {/* Mobiele topbalk — logo + accountmenu (navigatie zelf staat in de onderbalk) */}
       <header className="sticky top-0 z-20 border-b border-brand-blue-light/20 bg-sidebar shadow-sm sm:hidden">
         <div className="flex items-center justify-between px-4 py-3">
-          <Link to="/" className="flex items-center gap-2 text-lg font-semibold text-white">
+          <Link to="/" onClick={handleLogoClick} className="flex items-center gap-2 text-lg font-semibold text-white">
             <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-white shadow-[0_2px_6px_rgba(0,0,0,0.25)]">
               <img src="/logo-mark.png" alt="" className="h-6 w-6 object-contain" />
             </span>

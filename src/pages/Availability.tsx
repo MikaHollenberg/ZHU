@@ -131,6 +131,7 @@ export function Availability() {
             telefoonnummer: eigenTweedePersoon.telefoonnummer ?? '',
             geboortedatum: eigenTweedePersoon.geboortedatum ?? '',
             geboorteplaats: eigenTweedePersoon.geboorteplaats ?? '',
+            teamnaam: eigenTweedePersoon.teamnaam ?? '',
           }
         : LEEG_TWEEDE_PERSOON,
     )
@@ -186,6 +187,7 @@ export function Availability() {
           telefoonnummer: duoPartner.telefoonnummer.trim() || null,
           geboortedatum: geboortedatum || null,
           geboorteplaats: geboorteplaats.trim() || null,
+          teamnaam: duoPartner.teamnaam.trim() || null,
         },
         { onConflict: 'boeker_id' },
       )
@@ -420,6 +422,16 @@ export function Availability() {
                   />
                 </label>
               </div>
+              <label className="block">
+                <span className="mb-1 block text-sm text-slate-700">Teamnaam (optioneel, voor de lol!)</span>
+                <input
+                  type="text"
+                  placeholder="bijv. De Zeeslakken"
+                  value={duoPartner.teamnaam}
+                  onChange={(e) => duoPartnerVeldWijzig('teamnaam', e.target.value)}
+                  className="input"
+                />
+              </label>
               <div className="flex items-center gap-3">
                 <button
                   type="button"

@@ -198,6 +198,8 @@ function CelPaneel({
   tweedePersonen,
   tweedePersoonPerBoeker,
   instructeurs,
+  alleLessen,
+  cursistenById,
   onClose,
   onChanged,
 }: {
@@ -206,6 +208,8 @@ function CelPaneel({
   tweedePersonen: Record<string, TweedePersoon>
   tweedePersoonPerBoeker: Record<string, TweedePersoon>
   instructeurs: Profile[]
+  alleLessen: LesMetLabel[]
+  cursistenById: Record<string, Profile>
   onClose: () => void
   onChanged: () => void
 }) {
@@ -245,6 +249,7 @@ function CelPaneel({
           telefoonnummer: opgeslagenPartner.telefoonnummer ?? '',
           geboortedatum: opgeslagenPartner.geboortedatum ?? '',
           geboorteplaats: opgeslagenPartner.geboorteplaats ?? '',
+          teamnaam: opgeslagenPartner.teamnaam ?? '',
         }
       : LEEG_TWEEDE_PERSOON,
   )
@@ -277,6 +282,28 @@ function CelPaneel({
   const beschikbaarheidTweedePersoon = beschikbaarheidDuo?.tweede_persoon_id
     ? tweedePersonen[beschikbaarheidDuo.tweede_persoon_id]
     : null
+
+  // Conflictdetectie: waarschuwt (blokkeert niet) als de gekozen instructeur op
+  // hetzelfde moment al een andere les heeft — de beheerder kan dan zelf
+  // beoordelen of dat klopt of een vergissing is.
+  const instructeurConflict = useMemo(() => {
+    if (!les || !instructeurKeuze) return null
+    const overlapt = alleLessen.find(
+      (l) =>
+        l.id !== les.id &&
+        l.datum === les.datum &&
+        l.status === 'gepland' &&
+        l.instructeur_id === instructeurKeuze &&
+        tijdNaarMinuten(l.starttijd.slice(0, 5)) < tijdNaarMinuten(les.eindtijd.slice(0, 5)) &&
+        tijdNaarMinuten(les.starttijd.slice(0, 5)) < tijdNaarMinuten(l.eindtijd.slice(0, 5)),
+    )
+    if (!overlapt) return null
+    const cursist = cursistenById[overlapt.cursist_id]
+    return {
+      tijd: `${overlapt.starttijd.slice(0, 5)} - ${overlapt.eindtijd.slice(0, 5)}`,
+      naam: cursist ? `${cursist.voornaam} ${cursist.achternaam}` : 'een andere cursist',
+    }
+  }, [les, instructeurKeuze, alleLessen, cursistenById])
 
   const handleInplannen = async () => {
     if (tijdNaarMinuten(eind) - tijdNaarMinuten(start) < MINIMALE_TIJDVAK_MINUTEN) {
@@ -311,6 +338,7 @@ function CelPaneel({
             telefoonnummer: planTweedePersoon.telefoonnummer.trim() || null,
             geboortedatum: planTweedePersoon.geboortedatum || null,
             geboorteplaats: planTweedePersoon.geboorteplaats.trim() || null,
+            teamnaam: planTweedePersoon.teamnaam.trim() || null,
           },
           { onConflict: 'boeker_id' },
         )
@@ -575,6 +603,12 @@ function CelPaneel({
                   {instructeurOpslaan ? 'Bezig...' : 'Opslaan'}
                 </button>
               </div>
+              {instructeurConflict && (
+                <p className="mt-2 rounded-lg bg-status-wachtend-bg px-3 py-2 text-xs text-status-wachtend">
+                  ⚠️ Let op: deze instructeur heeft op {formattedDatum} al een les met {instructeurConflict.naam} (
+                  {instructeurConflict.tijd}).
+                </p>
+              )}
             </label>
 
             {les.status === 'gepland' && (
@@ -1263,6 +1297,8 @@ export function AdminBeschikbaarheid() {
           tweedePersonen={tweedePersonen}
           tweedePersoonPerBoeker={tweedePersoonPerBoeker}
           instructeurs={instructeurs}
+          alleLessen={lessen}
+          cursistenById={cursistenById}
           onClose={() => setSelectie(null)}
           onChanged={async () => {
             await load()

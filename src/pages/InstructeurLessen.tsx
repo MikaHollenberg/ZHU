@@ -121,6 +121,9 @@ export function InstructeurLessen() {
 
   const vandaag = new Date().toISOString().slice(0, 10)
   const eigenToekomstig = eigen.filter((l) => l.datum >= vandaag && l.status === 'gepland')
+  const eigenVandaag = eigenToekomstig
+    .filter((l) => l.datum === vandaag)
+    .sort((a, b) => (a.starttijd < b.starttijd ? -1 : 1))
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -140,14 +143,35 @@ export function InstructeurLessen() {
         <Loader />
       ) : (
         <>
+          {eigenVandaag.length > 0 && (
+            <div className="mb-8 rounded-2xl border border-brand-blue-light/50 bg-brand-blue-light/10 p-4">
+              <h2 className="mb-3 text-base font-semibold text-brand-blue-dark">
+                Vandaag lesgeven — {eigenVandaag.length} {eigenVandaag.length === 1 ? 'les' : 'lessen'}
+              </h2>
+              <ul className="space-y-2">
+                {eigenVandaag.map((les) => (
+                  <li key={les.id} className="card flex items-center justify-between gap-3 px-4 py-3">
+                    <div className="min-w-0">
+                      <p className="font-semibold text-slate-800">
+                        {les.starttijd.slice(0, 5)} - {les.eindtijd.slice(0, 5)}
+                      </p>
+                      <p className="text-sm text-slate-500">{cursistNaam(les)}</p>
+                    </div>
+                    <DisciplineBadge discipline={les.discipline} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <h2 className="mb-3 text-base font-semibold text-slate-800">Mijn lessen</h2>
           {eigenToekomstig.length === 0 ? (
             <LegeStaat tekst="Je bent nog aan geen enkele les gekoppeld." />
           ) : (
-            <ul className="mb-8 space-y-2">
-              {eigenToekomstig.map((les) => (
-                <li key={les.id} className="card flex items-center justify-between gap-3 px-4 py-3.5">
-                  <div className="min-w-0">
+            <div className="mb-8">
+              <ul className="mb-2 space-y-2">
+                {eigenToekomstig.map((les) => (
+                  <li key={les.id} className="card px-4 py-3.5">
                     <p className="font-medium capitalize text-slate-800">{formatDatum(les.datum)}</p>
                     <p className="text-sm text-slate-500">
                       {les.starttijd.slice(0, 5)} - {les.eindtijd.slice(0, 5)} · {cursistNaam(les)}
@@ -155,18 +179,14 @@ export function InstructeurLessen() {
                     <div className="mt-1.5">
                       <DisciplineBadge discipline={les.discipline} />
                     </div>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={submitting === les.id}
-                    onClick={() => handleAfmelden(les.id)}
-                    className="flex-none text-sm font-medium text-red-600 transition-colors hover:text-red-700 hover:underline"
-                  >
-                    Afmelden
-                  </button>
-                </li>
-              ))}
-            </ul>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-slate-400">
+                Wil je van een ingeplande les af? Neem contact op met de beheerder — je kunt je hier niet meer zelf
+                afmelden.
+              </p>
+            </div>
           )}
 
           <h2 className="mb-3 text-base font-semibold text-slate-800">Mijn aanvragen (wacht op goedkeuring)</h2>

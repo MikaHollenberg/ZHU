@@ -226,3 +226,94 @@ body {
 .animate-spotlight-pulse {
   animation: spotlight-pulse 1.8s ease-in-out infinite;
 }
+
+/* Easter egg: een bootje dat vloeiend over het scherm vaart, getriggerd door
+   een klik op het logo (zie EasterEggBoat.tsx en Layout.tsx). Bewust
+   opgesplitst in twee lagen: de buitenste laag doet één rustige, brede haal
+   over het scherm (geen tussenstops die het laten "springen"), de binnenste
+   laag laat het bootje daarbovenop zacht deinen — samen oogt dat als een
+   doorlopende beweging in plaats van van-plek-naar-plek te schieten. */
+@keyframes sail-glide {
+  0% {
+    transform: translate(-18vw, 8vh);
+  }
+  50% {
+    transform: translate(50vw, 32vh);
+  }
+  100% {
+    transform: translate(118vw, 14vh);
+  }
+}
+.animate-sail-glide {
+  animation: sail-glide 6s cubic-bezier(0.37, 0, 0.63, 1) forwards;
+}
+
+@keyframes boat-bob {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-4deg);
+  }
+  50% {
+    transform: translateY(-16px) rotate(4deg);
+  }
+}
+.animate-boat-bob {
+  animation: boat-bob 1.6s ease-in-out infinite;
+  transform-origin: 50% 75%;
+}
+
+/* De kleine spatjes achter het bootje aan — dezelfde brede haal, vertraagd
+   gestart zodat het een sliert lijkt, zonder de deining (die zou de sliert
+   juist minder rustig laten ogen). */
+.animate-sail-wake {
+  animation: sail-glide 6s cubic-bezier(0.37, 0, 0.63, 1) forwards;
+  animation-delay: var(--wake-delay, 150ms);
+}
+
+/* Confetti-regen die over het hele scherm valt, als feestelijke omlijsting
+   voor het bootje — met een zachte zijwaartse zwier voor wat meer leven. */
+@keyframes confetti-fall {
+  0% {
+    transform: translate(0, -12vh) rotate(0deg);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  25% {
+    transform: translate(18px, 15vh) rotate(90deg);
+  }
+  50% {
+    transform: translate(-18px, 45vh) rotate(180deg);
+  }
+  75% {
+    transform: translate(18px, 78vh) rotate(270deg);
+  }
+  100% {
+    transform: translate(0, 112vh) rotate(360deg);
+    opacity: 0;
+  }
+}
+.animate-confetti-fall {
+  animation-name: confetti-fall;
+  animation-timing-function: ease-in-out;
+  animation-fill-mode: both;
+}
+
+@keyframes confetti-pop {
+  0% {
+    transform: scale(0) rotate(0deg);
+    opacity: 0;
+  }
+  40% {
+    transform: scale(1.3) rotate(20deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) translateY(-40px) rotate(35deg);
+    opacity: 0;
+  }
+}
+.animate-confetti-pop {
+  animation: confetti-pop 1.4s ease-out both;
+}

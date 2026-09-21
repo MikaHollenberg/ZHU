@@ -32,7 +32,7 @@ interface CursistNaam {
 }
 
 interface LesMetPartner extends Les {
-  tweede_persoon: { voornaam: string; achternaam: string } | null
+  tweede_persoon: { voornaam: string; achternaam: string; teamnaam: string | null } | null
 }
 
 function InstructeurStatusIcon({
@@ -101,7 +101,7 @@ function CursistHome() {
     Promise.all([
       supabase
         .from('lessen')
-        .select('*, tweede_persoon:tweede_persoon(voornaam, achternaam)')
+        .select('*, tweede_persoon:tweede_persoon(voornaam, achternaam, teamnaam)')
         .eq('cursist_id', user.id)
         .eq('status', 'gepland')
         .gte('datum', vandaagStr)
@@ -145,9 +145,9 @@ function CursistHome() {
 
   const duoPartnerTekst = useMemo(() => {
     if (!volgendeLes || volgendeLes.soort !== 'duo_cursus') return undefined
-    return volgendeLes.tweede_persoon
-      ? `Duo-cursus met ${volgendeLes.tweede_persoon.voornaam} ${volgendeLes.tweede_persoon.achternaam}`
-      : 'Duo-cursus'
+    if (!volgendeLes.tweede_persoon) return 'Duo-cursus'
+    const teamnaamTekst = volgendeLes.tweede_persoon.teamnaam ? ` "${volgendeLes.tweede_persoon.teamnaam}"` : ''
+    return `Duo-cursus${teamnaamTekst} met ${volgendeLes.tweede_persoon.voornaam} ${volgendeLes.tweede_persoon.achternaam}`
   }, [volgendeLes])
 
   const voorkeurTekst = useMemo(() => {
@@ -302,7 +302,7 @@ function BeheerderHome() {
       supabase.from('profiles').select('id, voornaam, achternaam').eq('rol', 'instructeur').eq('gearchiveerd', false),
       supabase
         .from('lessen')
-        .select('*, tweede_persoon:tweede_persoon(voornaam, achternaam)')
+        .select('*, tweede_persoon:tweede_persoon(voornaam, achternaam, teamnaam)')
         .eq('status', 'gepland')
         .gte('datum', vandaagStr)
         .lte('datum', overEenWeekStr)

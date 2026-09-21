@@ -27,7 +27,10 @@ export function ForgotPassword() {
   return (
     <div className="mx-auto max-w-md">
       <h1 className="mb-1 text-2xl font-bold tracking-tight text-brand-blue-dark">Wachtwoord vergeten</h1>
-      <p className="mb-6 text-sm text-slate-500">Geen paniek — we sturen je een link om een nieuwe in te stellen.</p>
+      <p className="mb-1 text-sm text-slate-500">Geen paniek — we sturen je een link om een nieuwe in te stellen.</p>
+      <p className="mb-6 text-sm italic text-slate-400">
+        Zelfs de beste stuurlui raken weleens hun wachtwoord kwijt.
+      </p>
 
       {verzonden ? (
         <div className="card flex items-start gap-3 p-5">

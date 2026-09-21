@@ -167,6 +167,7 @@ create table public.tweede_persoon (
   telefoonnummer text,
   geboortedatum date,
   geboorteplaats text,
+  teamnaam text,
   aangemaakt_op timestamptz not null default now(),
   constraint tweede_persoon_boeker_id_unique unique (boeker_id)
 );
@@ -374,6 +375,10 @@ begin
 end;
 $$;
 
+-- Instructeurs kunnen alleen een nog niet goedgekeurde aanvraag zelf intrekken.
+-- Een al ingeplande les (instructeur_id gezet) kan alleen de beheerder
+-- loskoppelen — net als verzetten/annuleren voor cursisten al via de
+-- beheerder loopt.
 create or replace function public.meld_af_als_instructeur(p_les_id uuid)
 returns public.lessen
 language plpgsql
@@ -384,19 +389,26 @@ declare
   v_les public.lessen;
 begin
   if not public.is_instructeur() then
-    raise exception 'Alleen instructeurs kunnen zich afmelden';
+    raise exception 'Alleen instructeurs kunnen een aanvraag intrekken';
+  end if;
+
+  select * into v_les from public.lessen where id = p_les_id;
+  if not found then
+    raise exception 'Les niet gevonden';
+  end if;
+
+  if v_les.instructeur_id = auth.uid() then
+    raise exception 'Je kunt jezelf niet afmelden voor een ingeplande les — neem contact op met de beheerder.';
+  end if;
+
+  if v_les.instructeur_aanvraag_id is distinct from auth.uid() then
+    raise exception 'Je bent niet gekoppeld aan deze les';
   end if;
 
   update public.lessen
-  set
-    instructeur_id = case when instructeur_id = auth.uid() then null else instructeur_id end,
-    instructeur_aanvraag_id = case when instructeur_aanvraag_id = auth.uid() then null else instructeur_aanvraag_id end
-  where id = p_les_id and (instructeur_id = auth.uid() or instructeur_aanvraag_id = auth.uid())
+  set instructeur_aanvraag_id = null
+  where id = p_les_id
   returning * into v_les;
-
-  if not found then
-    raise exception 'Je bent niet gekoppeld aan deze les';
-  end if;
 
   return v_les;
 end;

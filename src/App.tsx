@@ -13,6 +13,7 @@ import { Profile } from './pages/Profile'
 import { Home } from './pages/Home'
 import { Availability } from './pages/Availability'
 import { MyLessons } from './pages/MyLessons'
+import { HandigeInfo } from './pages/HandigeInfo'
 import { AdminCursisten } from './pages/admin/Cursisten'
 import { AdminBeschikbaarheid } from './pages/admin/BeschikbaarheidOverzicht'
 import { AdminLabels } from './pages/admin/Labels'
@@ -61,6 +62,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <MyLessons />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/handige-info"
+              element={
+                <ProtectedRoute>
+                  <HandigeInfo />
                 </ProtectedRoute>
               }
             />

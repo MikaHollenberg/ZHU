@@ -11,6 +11,7 @@ export const PAGE_TITLES: Record<string, string> = {
   '/profiel': 'Mijn gegevens',
   '/beschikbaarheid': 'Beschikbaarheid',
   '/mijn-lessen': 'Mijn lessen',
+  '/handige-info': 'Handige info',
   '/lesgeven': 'Lesgeven',
   '/statistieken': 'Mijn statistieken',
   '/beheer/cursisten': 'Cursisten',
