@@ -5,7 +5,7 @@ import { STATUS_LABELS, STATUS_STYLES } from '../lib/lesStatus'
 import { lesUren, formatUren } from '../lib/stats'
 import { haalHistorischWeer } from '../lib/weer'
 import { DisciplineBadge } from '../components/DisciplineBadge'
-import { CalendarPlusIcon, CheckIcon, ClockIcon, XIcon } from '../components/icons'
+import { CalendarPlusIcon, ChatBubbleIcon, CheckIcon, ClockIcon, XIcon } from '../components/icons'
 import { Loader } from '../components/Loader'
 import type { Les, LesStatus } from '../types/lesson'
 
@@ -41,6 +41,8 @@ function formatDatum(datum: string) {
 
 function LesItem({ les }: { les: LesMetLabel }) {
   const StatusIcon = STATUS_ICON[les.status]
+  const [vraagOpen, setVraagOpen] = useState(false)
+
   return (
     <li className="card px-4 py-3.5">
       <div className="flex items-start justify-between gap-3">
@@ -65,6 +67,42 @@ function LesItem({ les }: { les: LesMetLabel }) {
       {les.status !== 'gepland' && les.label && (
         <p className="mt-2 rounded-lg bg-slate-50 px-2.5 py-1.5 text-sm text-slate-500">Reden: {les.label.naam}</p>
       )}
+
+      <div className="relative mt-3 border-t border-slate-100 pt-3">
+        <button
+          type="button"
+          onClick={() => setVraagOpen((open) => !open)}
+          aria-expanded={vraagOpen}
+          className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-500 transition-colors duration-150 hover:border-brand-blue hover:bg-brand-blue-light/10 hover:text-brand-blue-dark"
+        >
+          <ChatBubbleIcon className="h-3.5 w-3.5" />
+          Vraag over deze les?
+        </button>
+
+        {vraagOpen && (
+          <div
+            role="status"
+            className="absolute left-0 top-full z-20 mt-3 w-72 max-w-[calc(100vw-4rem)] rounded-2xl bg-slate-800 p-4 text-sm leading-relaxed text-white shadow-xl animate-toast-in"
+          >
+            <span aria-hidden="true" className="absolute -top-1.5 left-5 h-3.5 w-3.5 rotate-45 rounded-sm bg-slate-800" />
+            <button
+              type="button"
+              onClick={() => setVraagOpen(false)}
+              aria-label="Sluiten"
+              className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full text-slate-300 transition-colors duration-150 hover:bg-white/10 hover:text-white"
+            >
+              <XIcon className="h-3 w-3" />
+            </button>
+            <p className="pr-5">
+              Heb je een vraag over deze les, of wil je iets aanpassen? Mail ons gerust op{' '}
+              <a href="mailto:info@zeilschooluitgeest.nl" className="font-semibold text-brand-blue-light underline">
+                info@zeilschooluitgeest.nl
+              </a>{' '}
+              — we helpen je graag verder.
+            </p>
+          </div>
+        )}
+      </div>
     </li>
   )
 }
