@@ -30,8 +30,8 @@ export function Privacybeleid() {
         <ul className="list-disc space-y-1 pl-6">
           <li>voor- en achternaam</li>
           <li>e-mailadres</li>
-          <li>telefoonnummer (optioneel)</li>
-          <li>geboortedatum en geboorteplaats (optioneel)</li>
+          <li>telefoonnummer</li>
+          <li>geboortedatum en geboorteplaats</li>
           <li>je opgegeven beschikbaarheid en geplande lessen</li>
         </ul>
         <p>
@@ -46,8 +46,13 @@ export function Privacybeleid() {
 
         <h2 className="pt-4 text-lg font-semibold text-brand-blue-dark">Waarom we deze gegevens verwerken</h2>
         <p>
-          We gebruiken je gegevens om lessen voor je in te plannen op basis van je beschikbaarheid, om met je te
-          communiceren over je lessen (bevestigen, verzetten, annuleren), en om je account en rol (cursist,
+          Je naam, geboortedatum en geboorteplaats hebben we ook nodig om je aan te melden bij de CWO (Commissie
+          Watersport Opleidingen) zodra je een vaardigheidsbewijs of diploma behaalt — de CWO vraagt deze gegevens
+          voor de landelijke registratie van jouw diploma.
+        </p>
+        <p>
+          Daarnaast gebruiken we je gegevens om lessen voor je in te plannen op basis van je beschikbaarheid, om met
+          je te communiceren over je lessen (bevestigen, verzetten, annuleren), en om je account en rol (cursist,
           instructeur, beheerder) correct te beheren. De grondslag hiervoor is de uitvoering van de overeenkomst die
           we met je hebben — het geven van priveles.
         </p>
