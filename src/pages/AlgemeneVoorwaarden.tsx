@@ -68,16 +68,16 @@ export function AlgemeneVoorwaarden() {
             zeilschool beoordelen wanneer dit het geval is.
           </p>
           <p className="mt-3">
-            <strong>Zelf verzetten of annuleren: kosteloos tot 48 uur van tevoren.</strong> Kun je zelf niet op het
-            geplande moment? Geef dit tot 48 uur van tevoren aan ons door, dan verzetten of annuleren we je les
-            kosteloos — binnen alle redelijkheid: we kunnen niet voor elke kleine aanpassing het rooster omgooien.
-            Denk bij "alle redelijkheid" bijvoorbeeld aan onverwachte, dringende omstandigheden zoals een overlijden
-            of begrafenis, een medische reden, of een ander ernstig persoonlijk voorval. Een drukke week of iets
-            anders leuks die dag valt hier niet onder.
+            <strong>Zelf verzetten: kosteloos tot 48 uur van tevoren.</strong> Kun je zelf niet op het geplande
+            moment? Geef dit tot 48 uur van tevoren aan ons door, dan verzetten we je les kosteloos naar een nieuw
+            moment — binnen alle redelijkheid: we kunnen niet voor elke kleine aanpassing het rooster omgooien. Denk
+            bij "alle redelijkheid" bijvoorbeeld aan onverwachte, dringende omstandigheden zoals een overlijden of
+            begrafenis, een medische reden, of een ander ernstig persoonlijk voorval. Een drukke week of iets anders
+            leuks die dag valt hier niet onder.
           </p>
           <div className="mt-3 rounded-xl bg-status-geannuleerd-bg px-4 py-3 text-status-geannuleerd">
-            <strong>Binnen 48 uur?</strong> Dan brengen we hiervoor kosten in rekening, conform artikel 7 van de
-            HISWA-voorwaarden hierboven.
+            <strong>Binnen 48 uur verzet?</strong> Dan brengen we hiervoor kosten in rekening, conform artikel 7 van
+            de HISWA-voorwaarden hierboven.
           </div>
         </div>
 
