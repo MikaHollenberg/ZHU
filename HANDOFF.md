@@ -87,6 +87,30 @@ project voordat je begint, zeker als je hier na een lange pauze weer instapt.
   `.gitignore`, negeer ze.
 - `npm audit` staat op 0 kwetsbaarheden (laatst gecheckt bij de dependency-update
   in de functie-hardening-commit). Bij twijfel gewoon opnieuw draaien.
+- **Supabase MCP-tools werken direct** (`execute_sql`, `apply_migration`,
+  `get_advisors`, `deploy_edge_function`, etc.) — geen Supabase CLI nodig.
+  Gebruik `apply_migration` voor schema-wijzigingen (DDL) en `execute_sql`
+  voor data (SELECT/UPDATE/DELETE/INSERT). **Eén uitzondering ontdekt**: een
+  `UPDATE profiles SET rol = 'beheerder'` via `execute_sql` werd geweigerd
+  door een auto-mode-permissieclassifier ("Permission Grant") — kennelijk
+  wordt rol-escalatie specifiek als gevoelig gezien, andere UPDATE/INSERT/
+  DELETE-statements (archiveren, testlessen aanmaken/verwijderen) gingen
+  wél gewoon door. Loop je hier tegenaan: leg het uit aan de gebruiker en
+  vraag het via een andere weg (bijv. de gebruiker zet het zelf via de
+  Cursisten-pagina in de UI, of via de Supabase Table Editor).
+- **Console-foutmeldingen in de Browser-pane kunnen sterk verouderd zijn** —
+  deze sessie zag meerdere keren oude HMR-foutmeldingen (bijv.
+  `ReferenceError: X is not defined` van een allang gefixte tussentijdse
+  edit) blijven hangen in `read_console_messages`, ook na een volledige
+  page reload. Vertrouw bij twijfel niet blind op die tool: check in plaats
+  daarvan de **staart van `/tmp/vite-dev.log`** (`tail -n 20`) voor de
+  daadwerkelijk laatste compile-status, of doe gewoon een screenshot/
+  `get_page_text` om te zien of de pagina echt kapot is. Vaak blijkt de
+  pagina prima te werken terwijl de console nog oude ruis toont.
+- **Dev-server kan tussentijds gestopt zijn** (bijv. na een lange pauze in de
+  sessie) — check altijd eerst `lsof -ti:5173` voordat je concludeert dat
+  er iets mis is met de app zelf; her-start 'm gewoon met het commando
+  hierboven als de poort leeg is.
 
 ## Navigatie & lay-out
 
@@ -394,13 +418,97 @@ bij het openen van het paneel).
 - **Frontend-functionaliteit**: gelezen/ongelezen togglen, verwijderen,
   "Alles gelezen", en klikken op een melding navigeert naar `melding.link`
   (bijv. `/beheer/beschikbaarheid` of `/`) en markeert 'm meteen als gelezen.
-- **Niet live getest**: de bel-UI zelf is nog niet visueel bevestigd in de
-  browser — daarvoor is een beheerder-login nodig en Claude heeft alleen
-  cursist-testaccount-inloggegevens (zie "Testaccounts" hieronder). De
-  databankkant (trigger → rij in `meldingen`) is wel bevestigd te werken.
-  Log zelf even in als beheerder om de bel te zien, of geef Claude toestemming
-  om een testaccount tijdelijk naar `beheerder` te zetten en weer terug (zoals
-  eerder ook met `gearchiveerd` is gedaan).
+- **Live geverifieerd** (2026-09-21, gebruiker was zelf ingelogd als beheerder
+  in dezelfde browser-pane): bel + paneel werken. Onderweg wél een echte bug
+  gevonden en gefixt — de desktop-`<aside>`-zijbalk had geen eigen `z-index`,
+  waardoor het meldingen-paneel (en in theorie elke andere absolute-positioned
+  content in de zijbalk) **achter** de hoofdinhoud wegviel. De mobiele
+  topbalk had toevallig al wel `z-20` staan, dus dat werkte al. Fix: `z-20`
+  toegevoegd aan de `<aside>` zelf in `Layout.tsx`. **Val hier niet opnieuw
+  in**: elk nieuw absolute-positioned element in de zijbalk (dropdowns,
+  tooltips, popovers) moet boven de hoofdinhoud blijven — dat werkt nu
+  automatisch dankzij deze fix, maar hou het in gedachten als de zijbalk
+  ooit weer wordt herbouwd.
+
+## Tijdvak-kiezer op Statistieken (toegevoegd 2026-09-18/19)
+
+`src/lib/periode.ts` + `src/components/PeriodeKiezer.tsx`: een periode-model
+(`week`/`maand`/`jaar`/`alles`) met eigen navigatie (‹ huidige-periode-label ›),
+gebruikt op zowel `admin/Statistieken.tsx` als `InstructeurStatistieken.tsx`.
+Alle `lessen`-data wordt nog steeds in één keer client-side opgehaald (geen
+per-periode query's); `lesInPeriode()` filtert daarna in-memory.
+
+**Vergelijken is een vrij te kiezen tweede periode, niet automatisch "vorige
+periode"** — dit is expliciet zo gevraagd door de gebruiker (eerste versie deed
+alleen "vorige periode", dat vond hij te beperkt). De vergelijk-picker heeft
+zijn eigen type + eigen ‹ › navigatie, volledig los van de hoofdperiode (`{
+periode: Periode; vergelijkPeriode: Periode | null }`-state per pagina). Bij
+het aanzetten van de checkbox wordt 'm wel geseed op "vorige periode van
+hetzelfde type" (`vorigePeriode()`) als vriendelijk startpunt — daarna kan de
+gebruiker vrij navigeren. `StatTile.tsx` heeft een optionele `vergelijking`-prop
+die een neutrale deltaregel toont (geen rood/groen goed/fout-oordeel, want
+"meer geannuleerd" is bijv. geen goed nieuws). Live getest incl. onafhankelijke
+navigatie van beide pickers (2026-09-18).
+
+## Zeilseizoen-overzicht, Stormvaarder-badge & "Nu op het water" (2026-09-20)
+
+Drie kleine, losse features, voortgekomen uit een open brainstorm met de
+gebruiker ("leuke/handige ideeën?") — hij koos deze drie uit een lijst met
+suggesties:
+
+- **`src/lib/weer.ts`**: naast de bestaande 16-daagse voorspelling
+  (`haalWeerVoorDatum`) nu ook `haalHistorischWeer(start, eindExclusief)` via
+  Open-Meteo's gratis **Archive API** (`archive-api.open-meteo.com`, geen
+  key nodig) — voor windkracht op datums die al voorbij zijn. Eén aanroep per
+  datumbereik (niet per les), geen cache nodig (wordt maar één keer per
+  paginabezoek gebruikt).
+- **"Jouw zeilseizoen [jaar]"** — kaart bovenaan `MyLessons.tsx` (cursist):
+  totaal lesuren dit kalenderjaar, vaakst voorkomende weekdag, gemiddelde
+  windkracht over voltooide lessen. Alleen zichtbaar als er dit jaar al
+  minstens 1 voltooide les is.
+- **Stormvaarder-badge** — in diezelfde kaart, verschijnt bij `STORM_MIN_LESSEN`
+  (3) of meer voltooide lessen met windkracht `STORM_DREMPEL_BFT` (5) of hoger
+  dit jaar (beide als const bovenaan `MyLessons.tsx`, makkelijk aan te passen).
+  Hergebruikt de pop+ring-animatie van de bestaande mijlpaalbadge
+  (`animate-milestone-pop`/`animate-ring-pulse`).
+- **"Nu op het water"** — widget op `Home.tsx`'s `BeheerderHome`, direct onder
+  de StatTile-grid. Puur client-side afgeleid van de al opgehaalde
+  `komendeWeek`-data (geen extra query): filtert op vandaag + de huidige tijd
+  valt tussen start- en eindtijd. Een `setInterval` van 60s (`nu`-state)
+  houdt 'm actueel zonder de pagina te hoeven verversen. Blijft volledig
+  verborgen zolang er niemand vaart.
+
+Alle drie live geverifieerd in de browser (het seizoen-overzicht met een
+tijdelijke testles die meteen weer is verwijderd, zie "Testaccounts"
+hieronder voor dat patroon).
+
+## "Vraag over deze les?" (toegevoegd 2026-09-21)
+
+Op `MyLessons.tsx` (cursist) heeft elke lescard nu een klein knopje onderaan
+dat een **tekstwolkje** opent (donkere popover met driehoekje naar de knop,
+`animate-toast-in`-entree, eigen `useState` per `LesItem`-instantie dus elke
+kaart onafhankelijk open/dicht):
+
+> "Heb je een vraag over deze les, of wil je iets aanpassen? Mail ons gerust
+> op info@zeilschooluitgeest.nl — we helpen je graag verder."
+
+met een klikbare `mailto:`-link. Nieuw icoon: `ChatBubbleIcon` in
+`icons.tsx`. **Bewust géén nieuwe backend-functionaliteit** — puur een
+mailto-link, geen formulier, geen nieuwe tabel. Eerst als Design-canvas-
+mockup voorgelegd en goedgekeurd vóór het bouwen (zie "Werkwijze" hieronder
+voor dat patroon — de gebruiker vraagt dit soms expliciet, dan wachten met
+bouwen tot goedkeuring). Live getest (tijdelijke testles, zie hieronder).
+
+## Werkwijze: mockup-eerst bij een nieuwe UI-flow
+
+Als de gebruiker vraagt om "eerst een mockup" te maken vóór je iets bouwt:
+gebruik de Artifact-tool met het **Design-canvas**-type (`action:
+"quickstart", intent: "design"`) — niet zomaar een losse HTML-bestand. Bouw
+de mockup met de ECHTE kleuren/lettertype/`.card`-stijl van dit project (zie
+Design-systeem hierboven), niet een generieke look. Wacht daarna expliciet op
+goedkeuring voordat je het in de echte codebase bouwt — dit is al twee keer
+zo gevraagd deze sessie (animatie-ideeën, vraag-knop) en beide keren
+gewaardeerd.
 
 ## Wat is al gebouwd (functioneel)
 
@@ -531,16 +639,30 @@ niet meer om als cursist te testen. `cursistb2` is het huidige bruikbare
 cursist-testaccount (is tussentijds ook even tijdelijk instructeur geweest voor
 een test, maar staat weer op cursist).
 
-**Let op — accounts kunnen tussentijds gearchiveerd raken**: op 2026-09-17 bleken
-zowel `cursista` als `cursistb2` gearchiveerd te staan (`profiles.gearchiveerd =
-true`), waardoor inloggen alleen de "Account gearchiveerd"-melding toonde —
-niet iets dat deze sessie zelf heeft veroorzaakt, waarschijnlijk eerder
-handmatig getest. `cursistb2` is met toestemming van de gebruiker via Supabase
-(`update profiles set gearchiveerd = false where id = (select id from
-auth.users where email = '...')`) weer geactiveerd om de UI live te kunnen
-testen. Check dus bij twijfel eerst `select rol, gearchiveerd, count(*) from
-profiles group by rol, gearchiveerd` (geen PII, mag altijd) voordat je aanneemt
-dat een testaccount werkt.
+**Let op — accounts kunnen tussentijds gearchiveerd raken, ook heen-en-weer**:
+op 2026-09-17 bleken zowel `cursista` als `cursistb2` gearchiveerd; `cursistb2`
+is toen met toestemming van de gebruiker weer geactiveerd. Op 2026-09-21 bleek
+'m **opnieuw** gearchiveerd te staan (waarschijnlijk de gebruiker zelf, iets
+aan het opruimen/testen) — weer geactiveerd, weer met toestemming. Dit is dus
+geen eenmalig voorval: **check bij elke nieuwe sessie eerst** of een
+testaccount echt werkt voordat je 'm gebruikt:
+```sql
+select rol, gearchiveerd, count(*) from profiles group by rol, gearchiveerd;
+```
+(geen PII, mag altijd zonder te vragen). Sta iets gearchiveerd dat je nodig
+hebt: vraag toestemming, zet 'm aan, en laat 'm daarna gewoon staan zoals hij
+was (niet uit jezelf weer terugzetten — de gebruiker archiveert kennelijk af
+en toe bewust, dat is niet aan Claude om ongevraagd terug te draaien).
+
+**Patroon voor het testen van lessen-afhankelijke features** (bijv. het
+zeilseizoen-overzicht, de "vraag over deze les"-knop, de meldingen-triggers op
+`lessen`): de database staat sinds 2026-09-17 bewust op **0 lessen/
+beschikbaarheid/meldingen** (schone lei, zie hieronder). Wil je zoiets live
+zien met echte data: `insert into public.lessen (...)` voor één testles,
+verifiëren in de browser, dan **meteen** weer `delete from public.lessen
+where id = '...'` — en check ook of de insert een `meldingen`-rij triggerde
+(via de trigger op `lessen`) die je ook moet opruimen. Nooit testdata laten
+staan zonder het te melden.
 
 **Mogelijk nog op te ruimen**: tijdens het testen van account-enumeratie
 (security Fase 3) is er automatisch een wegwerp-testaccount aangemaakt met een
@@ -552,10 +674,23 @@ korter wachtwoord (bijv. `TestWachtwoord789` is 17 tekens, dus prima) hoeven
 niet aangepast te worden — de nieuwe eis geldt alleen bij het aanmaken/
 resetten, niet met terugwerkende kracht.
 
+## ⚠️ De database staat bewust op een schone lei (sinds 2026-09-17)
+
+Op expliciet verzoek van de gebruiker zijn `lessen`, `beschikbaarheid` en
+`meldingen` volledig geleegd ("we beginnen met een schone lei") — dat is
+**geen bug**, dat is de huidige, gewenste staat vóórdat de zeilschool het
+portal echt in gebruik neemt. `profiles` (accounts), `labels` en
+`tweede_persoon` (duo-partnergegevens) zijn bewust **niet** geleegd — dat was
+een expliciete keuze van de gebruiker (bevestigd via een gerichte vraag, zie
+"Belangrijke gedragsafspraken" hierboven: bij twijfel over zo'n scope eerst
+afstemmen). Verwacht dus lege statistieken/kalenders/dashboards totdat er
+weer echt lessen/beschikbaarheid ingevoerd worden — niet meteen naar bugs
+zoeken als alles op 0 staat.
+
 ## Wat nog open staat / mogelijke vervolgstappen
 
-- **Resend-account aanmaken** — de e-mailnotificatie-functie (zie boven) staat
-  klaar maar verstuurt nog niets, want er is nog geen account/API-key. Zodra
+- **Resend-account aanmaken** — de e-mailnotificatie-functie staat klaar
+  maar verstuurt nog niets, want er is nog geen account/API-key. Zodra
   de gebruiker dit heeft geregeld: `RESEND_API_KEY` (en optioneel
   `EMAIL_FROM`) als Edge Function-secret zetten in het Supabase-dashboard,
   daarna is dit ook meteen de oplossing voor het SMTP-rate-limit-punt
@@ -566,11 +701,8 @@ resetten, niet met terugwerkende kracht.
   komen.
 - **Captcha (Cloudflare Turnstile)** — stappenplan is met de gebruiker
   doorgenomen maar hij wil dit voorlopig laten rusten. Niet ongevraagd oppakken.
-- **Wegwerp-testaccount opruimen** — zie hierboven.
-- **Meldingen-bel visueel bevestigen** — de databankkant is live getest, de
-  UI zelf nog niet (geen beheerder-login beschikbaar in de sessie die dit
-  bouwde). Vraag de gebruiker even in te loggen, of tijdelijk een testaccount
-  naar `beheerder` te zetten.
+- **Wegwerp-testaccount opruimen** — zie "Testaccounts" hierboven (nog niet
+  gecheckt of die nog bestaat).
 - De instructeur-tabel in het rooster laat de beheerder nog niet toe om een
   lesgever te koppelen aan een cel die nog GEEN les heeft (alleen aan bestaande
   lessen). Zou een logische uitbreiding zijn als de gebruiker vraagt om vanuit de
@@ -581,11 +713,16 @@ resetten, niet met terugwerkende kracht.
   via de browser tijdens elke sessie (en één keer met een tijdelijk
   RLS-penetratietestscript, zie "Beveiligingstraject"). Overweeg dit te
   bespreken als het project groter wordt.
-- Laatste commit (`291db02`, animaties + rondleiding beschikbaarheid) staat
-  **gepusht en live** — geen actie nodig, tenzij
-  er weer nieuw werk lokaal klaarstaat (check altijd eerst `git status` en
-  `git log origin/main..HEAD` bij een nieuwe sessie om te zien of er iets
-  ongepusht is blijven staan — zie ook de waarschuwing bovenaan dit document).
+- **Andere ideeën die de gebruiker heeft afgewezen** (niet ongevraagd
+  opnieuw voorstellen): magic-link/wachtwoordloos inloggen, dag-van-tevoren
+  e-mailherinnering, .ics-agenda-export, Excel/CSV-export van statistieken,
+  PWA/"installeer als app". Hij koos bewust voor het zeilseizoen-overzicht +
+  Stormvaarder-badge + "Nu op het water" in plaats daarvan.
+- Laatste commit (`637bd59`, "vraag over deze les"-knop) staat **gepusht en
+  live** — geen actie nodig, tenzij er weer nieuw werk lokaal klaarstaat
+  (check altijd eerst `git status` en `git log origin/main..HEAD` bij een
+  nieuwe sessie om te zien of er iets ongepusht is blijven staan — zie ook de
+  waarschuwing bovenaan dit document).
 
 ## Snel starten in een nieuwe sessie
 
