@@ -2,7 +2,7 @@ export function AlgemeneVoorwaarden() {
   return (
     <div className="mx-auto max-w-3xl">
       <h1 className="mb-2 text-2xl font-semibold text-brand-blue-dark">Algemene voorwaarden</h1>
-      <p className="mb-8 text-sm text-slate-500">Laatst bijgewerkt: 26 augustus 2026</p>
+      <p className="mb-8 text-sm text-slate-500">Laatst bijgewerkt: 21 september 2026</p>
 
       <div className="space-y-4 text-slate-700">
         <p>
@@ -32,8 +32,16 @@ export function AlgemeneVoorwaarden() {
           <h3 className="mb-1 font-medium text-slate-800">Je account</h3>
           <p>
             Je bent zelf verantwoordelijk voor het geheimhouden van je wachtwoord en voor de juistheid van de
-            gegevens die je invoert (naam, contactgegevens, en indien van toepassing die van je duo-partner). Merk je
-            dat iemand anders mogelijk toegang heeft tot je account? Neem dan direct contact met ons op.
+            gegevens die je invoert (naam, contactgegevens, geboortedatum en geboorteplaats, en indien van
+            toepassing die van je duo-partner). Merk je dat iemand anders mogelijk toegang heeft tot je account? Neem
+            dan direct contact met ons op.
+          </p>
+          <p className="mt-2">
+            <strong>Let op bij diploma-registratie:</strong> kloppen je gegevens niet en komen ze daardoor verkeerd
+            op je vaardigheidsbewijs of diploma te staan, dan is dat je eigen verantwoordelijkheid. Onjuiste
+            gegevens kun je zelf corrigeren in je account bij de CWO (Commissie Watersport Opleidingen). Is je
+            diploma al uitgereikt, dan kan de papieren versie helaas niet meer worden aangepast — je behaalde
+            niveau staat dan wel gewoon goed geregistreerd in het digitale CWO-systeem.
           </p>
         </div>
 
@@ -47,12 +55,30 @@ export function AlgemeneVoorwaarden() {
         </div>
 
         <div>
-          <h3 className="mb-1 font-medium text-slate-800">Verzetten en annuleren</h3>
+          <h3 className="mb-1 font-medium text-slate-800">Verzetten en annuleren — onze coulanceregeling</h3>
           <p>
             Een geplande les verzet of annuleer je niet zelfstandig in het portal, maar via ons — neem contact op via
-            de gegevens onderaan deze pagina. Voor de voorwaarden en eventuele kosten die daarbij horen, verwijzen we
-            naar artikel 7 van de HISWA-voorwaarden hierboven.
+            de gegevens onderaan deze pagina. Voor de algemene voorwaarden rondom verzetten en annuleren verwijzen we
+            naar artikel 7 van de HISWA-voorwaarden hierboven. Daarbovenop hanteren wij, als zeilschool, de volgende
+            coulanceregeling:
           </p>
+          <p className="mt-3">
+            <strong>Weer ongeschikt om te varen.</strong> Is het volgens ons niet verantwoord om te varen — te
+            weinig wind, te veel wind, onweer — dan verzetten wij de les kosteloos naar een nieuw moment. Wij als
+            zeilschool beoordelen wanneer dit het geval is.
+          </p>
+          <p className="mt-3">
+            <strong>Zelf verzetten of annuleren: kosteloos tot 48 uur van tevoren.</strong> Kun je zelf niet op het
+            geplande moment? Geef dit tot 48 uur van tevoren aan ons door, dan verzetten of annuleren we je les
+            kosteloos — binnen alle redelijkheid: we kunnen niet voor elke kleine aanpassing het rooster omgooien.
+            Denk bij "alle redelijkheid" bijvoorbeeld aan onverwachte, dringende omstandigheden zoals een overlijden
+            of begrafenis, een medische reden, of een ander ernstig persoonlijk voorval. Een drukke week of iets
+            anders leuks die dag valt hier niet onder.
+          </p>
+          <div className="mt-3 rounded-xl bg-status-geannuleerd-bg px-4 py-3 text-status-geannuleerd">
+            <strong>Binnen 48 uur?</strong> Dan brengen we hiervoor kosten in rekening, conform artikel 7 van de
+            HISWA-voorwaarden hierboven.
+          </div>
         </div>
 
         <div>
