@@ -54,3 +54,40 @@ export async function haalWeerVoorDatum(datum: string): Promise<DagWeer | null> 
   }
   return cache?.perDatum[datum] ?? null
 }
+
+// Historisch weer (voor voltooide lessen — jaaroverzicht, windkracht-badges) via
+// Open-Meteo's gratis Archive API, geen API-key nodig. Anders dan de voorspelling
+// hierboven is dit geen "leuk extraatje meer voor de eerstvolgende les" maar
+// puur input voor terugkijk-statistiek, dus geen cache nodig (één aanroep per
+// bezoek aan die pagina, voor een heel datumbereik tegelijk i.p.v. per les).
+export async function haalHistorischWeer(
+  startDatum: string,
+  eindDatumExclusief: string,
+): Promise<Record<string, DagWeer>> {
+  const eindInclusiefDate = new Date(`${eindDatumExclusief}T00:00:00`)
+  eindInclusiefDate.setDate(eindInclusiefDate.getDate() - 1)
+  const eindDatum = eindInclusiefDate.toISOString().slice(0, 10)
+  if (startDatum > eindDatum) return {}
+
+  try {
+    const res = await fetch(
+      `https://archive-api.open-meteo.com/v1/archive?latitude=${LAT}&longitude=${LON}&start_date=${startDatum}&end_date=${eindDatum}&daily=wind_speed_10m_max,wind_direction_10m_dominant&timezone=Europe%2FAmsterdam`,
+    )
+    if (!res.ok) return {}
+    const json = await res.json()
+    const dagen: string[] = json?.daily?.time ?? []
+    const perDatum: Record<string, DagWeer> = {}
+    dagen.forEach((dag, i) => {
+      const snelheid = json.daily?.wind_speed_10m_max?.[i]
+      const richting = json.daily?.wind_direction_10m_dominant?.[i]
+      if (snelheid == null) return
+      perDatum[dag] = {
+        windBft: kmhNaarBeaufort(snelheid),
+        windRichting: richting != null ? gradenNaarRichting(richting) : '',
+      }
+    })
+    return perDatum
+  } catch {
+    return {}
+  }
+}

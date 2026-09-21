@@ -338,6 +338,26 @@ function BeheerderHome() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Klokje voor "Nu op het water" — elke minuut opnieuw checken wie er
+  // volgens het rooster middenin een les zit, zonder de hele pagina te
+  // hoeven verversen.
+  const [nu, setNu] = useState(() => new Date())
+  useEffect(() => {
+    const interval = window.setInterval(() => setNu(new Date()), 60_000)
+    return () => window.clearInterval(interval)
+  }, [])
+
+  const opHetWaterNu = useMemo(() => {
+    const vandaagStr = nu.toISOString().slice(0, 10)
+    const nuInMinuten = nu.getHours() * 60 + nu.getMinutes()
+    return komendeWeek.filter((les) => {
+      if (les.datum !== vandaagStr) return false
+      const [sh, sm] = les.starttijd.slice(0, 5).split(':').map(Number)
+      const [eh, em] = les.eindtijd.slice(0, 5).split(':').map(Number)
+      return nuInMinuten >= sh * 60 + sm && nuInMinuten < eh * 60 + em
+    })
+  }, [komendeWeek, nu])
+
   const handleGoedkeuren = async (les: Les) => {
     if (!les.instructeur_aanvraag_id) return
     setGoedkeurenId(les.id)
@@ -375,6 +395,37 @@ function BeheerderHome() {
           <StatTile label="Lessen deze week" value={String(komendeWeek.length)} />
           <StatTile label="Aanvragen" value={String(aanvragen.length)} badge={aanvragen.length} />
         </div>
+
+        {opHetWaterNu.length > 0 && (
+          <div className="card mb-6 px-4 py-3.5">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-status-bevestigd opacity-75" />
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-status-bevestigd" />
+              </span>
+              <h2 className="text-sm font-semibold text-slate-800">Nu op het water</h2>
+            </div>
+            <ul className="space-y-2">
+              {opHetWaterNu.map((les) => (
+                <li
+                  key={les.id}
+                  className="flex flex-wrap items-center gap-2.5 rounded-xl bg-brand-blue-light/10 px-3 py-2 text-sm"
+                >
+                  <DisciplineBadge discipline={les.discipline} />
+                  <span className="min-w-0 flex-1 truncate font-medium text-slate-800">
+                    {les.soort === 'duo_cursus'
+                      ? `Duo-cursus${les.tweede_persoon ? ` — ${les.tweede_persoon.voornaam} ${les.tweede_persoon.achternaam}` : ''}`
+                      : cursistNamen[les.cursist_id] ?? 'Cursist'}
+                  </span>
+                  {les.instructeur_id && instructeurNamen[les.instructeur_id] && (
+                    <span className="flex-none text-xs text-slate-400">met {instructeurNamen[les.instructeur_id]}</span>
+                  )}
+                  <span className="flex-none text-xs text-slate-400">tot {les.eindtijd.slice(0, 5)}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         {aanvragen.length > 0 && (
           <div className="mb-6">

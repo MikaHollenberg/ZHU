@@ -255,6 +255,8 @@ daadwerkelijk zijn uitgevoerd op het live Supabase-project, in deze volgorde:
 019_functie_hardening.sql       ← search_path vastzetten + EXECUTE intrekken
 020_functie_hardening_deel2.sql ← dode plan_les-overloads opruimen + PUBLIC-grant dicht
 021_meldingen.sql               ← notificatie-postvak voor de beheerder (zie hieronder)
+022_meld_beschikbaarheid_wijziging.sql ← ook een melding bij het bewerken van
+                                   bestaande beschikbaarheid, niet alleen nieuw
 ```
 
 (Fase 1's basis-schema, vóór deze lijst, staat direct in `schema.sql` zelf.)
@@ -373,8 +375,11 @@ bij het openen van het paneel).
   nooit rechtstreeks vanuit de frontend, dus geen INSERT-RLS-policy nodig
   voor `authenticated`. Triggers op:
   - `profiles` (na insert) → "Nieuwe registratie"
-  - `beschikbaarheid` (na insert, dus niet bij een upsert-update van een
-    bestaande dag) → "Nieuwe beschikbaarheid"
+  - `beschikbaarheid` (na insert of update — migratie `022`) →
+    "Nieuwe beschikbaarheid" resp. "Beschikbaarheid gewijzigd". Bij update
+    wordt inhoudelijk vergeleken (type/tijden/lesvorm/discipline) zodat de
+    status-only-toggle die plan_les/verzet_les/annuleer_les doen (open ↔
+    ingepland) geen ruis geeft.
   - `lessen` (na insert of update, onderscheiden via `TG_OP` + oude/nieuwe
     kolomwaarden) → "Les ingepland" / "Les verzet" / "Les geannuleerd" /
     "Instructeur meldt zich aan" (dit laatste bij een nieuwe

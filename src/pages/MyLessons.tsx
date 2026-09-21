@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { STATUS_LABELS, STATUS_STYLES } from '../lib/lesStatus'
+import { lesUren, formatUren } from '../lib/stats'
+import { haalHistorischWeer } from '../lib/weer'
 import { DisciplineBadge } from '../components/DisciplineBadge'
 import { CalendarPlusIcon, CheckIcon, ClockIcon, XIcon } from '../components/icons'
 import { Loader } from '../components/Loader'
@@ -16,6 +18,17 @@ const STATUS_ICON: Record<LesStatus, typeof CheckIcon> = {
   gepland: CheckIcon,
   verzet: ClockIcon,
   geannuleerd: XIcon,
+}
+
+// Drempel voor de Stormvaarder-badge: minimaal dit aantal voltooide lessen met
+// minimaal deze windkracht (Beaufort) dit jaar.
+const STORM_DREMPEL_BFT = 5
+const STORM_MIN_LESSEN = 3
+
+const DAGNAMEN = ['zondag', 'maandag', 'dinsdag', 'woensdag', 'donderdag', 'vrijdag', 'zaterdag']
+
+function dagNaam(datum: string) {
+  return DAGNAMEN[new Date(`${datum}T00:00:00`).getDay()]
 }
 
 function formatDatum(datum: string) {
@@ -56,6 +69,57 @@ function LesItem({ les }: { les: LesMetLabel }) {
   )
 }
 
+interface SeizoenStats {
+  aantalLessen: number
+  totaalUren: number
+  meestVoorkomendeDag: string | null
+  gemiddeldeWind: number | null
+  stormvaarder: boolean
+}
+
+function SeizoenOverzicht({ jaar, stats }: { jaar: number; stats: SeizoenStats }) {
+  return (
+    <div className="card mb-6 overflow-hidden">
+      <div className="bg-gradient-to-br from-brand-blue to-brand-blue-dark px-5 py-5 text-white">
+        <p className="text-xs font-bold uppercase tracking-wide text-brand-blue-light/80">Jouw zeilseizoen {jaar}</p>
+        <p className="mt-1 text-3xl font-extrabold">{formatUren(stats.totaalUren)}</p>
+        <p className="text-sm text-brand-blue-light/90">
+          op het water, in {stats.aantalLessen} {stats.aantalLessen === 1 ? 'les' : 'lessen'}
+        </p>
+      </div>
+      <div className="grid grid-cols-2 divide-x divide-slate-100 px-5 py-3.5 text-sm">
+        <div>
+          <p className="text-xs text-slate-400">Vaakst op</p>
+          <p className="font-semibold capitalize text-slate-700">{stats.meestVoorkomendeDag ?? '–'}</p>
+        </div>
+        <div className="pl-4">
+          <p className="text-xs text-slate-400">Gemiddelde wind</p>
+          <p className="font-semibold text-slate-700">
+            {stats.gemiddeldeWind !== null ? `${stats.gemiddeldeWind.toFixed(1)} Bft` : '–'}
+          </p>
+        </div>
+      </div>
+      {stats.stormvaarder && (
+        <div className="border-t border-slate-100 px-5 py-3.5">
+          <span className="relative inline-flex">
+            <span
+              aria-hidden="true"
+              className="absolute inset-0 rounded-full border-2 border-brand-yellow-dark animate-ring-pulse"
+            />
+            <span
+              aria-hidden="true"
+              className="absolute inset-0 rounded-full border-2 border-brand-yellow-dark animate-ring-pulse [animation-delay:200ms]"
+            />
+            <span className="badge relative bg-brand-yellow text-brand-blue-dark animate-milestone-pop">
+              🎉 Stormvaarder — {STORM_MIN_LESSEN}+ lessen met stevige wind
+            </span>
+          </span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function LegeStaat({ tekst }: { tekst: string }) {
   return (
     <p className="mb-8 flex items-center gap-2 rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-slate-400">
@@ -69,6 +133,8 @@ export function MyLessons() {
   const [lessen, setLessen] = useState<LesMetLabel[]>([])
   const [loading, setLoading] = useState(true)
   const [toonVerleden, setToonVerleden] = useState(false)
+
+  const [windPerDatum, setWindPerDatum] = useState<Record<string, number>>({})
 
   useEffect(() => {
     if (!user) return
@@ -87,6 +153,59 @@ export function MyLessons() {
   const toekomstig = lessen.filter((l) => l.datum >= vandaag)
   const verleden = lessen.filter((l) => l.datum < vandaag).sort((a, b) => (a.datum < b.datum ? 1 : -1))
 
+  const ditJaar = new Date().getFullYear()
+  const gegevenDitJaar = useMemo(
+    () =>
+      lessen.filter(
+        (l) =>
+          l.status === 'gepland' && l.datum <= vandaag && new Date(`${l.datum}T00:00:00`).getFullYear() === ditJaar,
+      ),
+    [lessen, vandaag, ditJaar],
+  )
+  const gegevenDitJaarDatums = gegevenDitJaar.map((l) => l.datum).join('|')
+
+  useEffect(() => {
+    if (gegevenDitJaar.length === 0) return
+    const datums = gegevenDitJaar.map((l) => l.datum).sort()
+    const eindExclusief = new Date(`${datums[datums.length - 1]}T00:00:00`)
+    eindExclusief.setDate(eindExclusief.getDate() + 1)
+    haalHistorischWeer(datums[0], eindExclusief.toISOString().slice(0, 10)).then((perDatum) => {
+      const map: Record<string, number> = {}
+      for (const [datum, weer] of Object.entries(perDatum)) {
+        map[datum] = weer.windBft
+      }
+      setWindPerDatum(map)
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gegevenDitJaarDatums])
+
+  const seizoen: SeizoenStats | null = useMemo(() => {
+    if (gegevenDitJaar.length === 0) return null
+
+    const totaalUren = gegevenDitJaar.reduce((som, l) => som + lesUren(l), 0)
+
+    const dagTelling: Record<string, number> = {}
+    for (const l of gegevenDitJaar) {
+      const dag = dagNaam(l.datum)
+      dagTelling[dag] = (dagTelling[dag] ?? 0) + 1
+    }
+    const meestVoorkomendeDag = Object.entries(dagTelling).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
+
+    const windWaarden = gegevenDitJaar
+      .map((l) => windPerDatum[l.datum])
+      .filter((w): w is number => w !== undefined)
+    const gemiddeldeWind = windWaarden.length > 0 ? windWaarden.reduce((s, w) => s + w, 0) / windWaarden.length : null
+    const stormLessen = windWaarden.filter((w) => w >= STORM_DREMPEL_BFT).length
+
+    return {
+      aantalLessen: gegevenDitJaar.length,
+      totaalUren,
+      meestVoorkomendeDag,
+      gemiddeldeWind,
+      stormvaarder: stormLessen >= STORM_MIN_LESSEN,
+    }
+  }, [gegevenDitJaar, windPerDatum])
+
   return (
     <div className="mx-auto max-w-2xl">
       <h1 className="mb-1 text-2xl font-bold tracking-tight text-brand-blue-dark">Mijn lessen</h1>
@@ -96,6 +215,8 @@ export function MyLessons() {
         <Loader />
       ) : (
         <>
+          {seizoen && <SeizoenOverzicht jaar={ditJaar} stats={seizoen} />}
+
           <h2 className="mb-3 text-base font-semibold text-slate-800">Toekomstige lessen</h2>
           {toekomstig.length === 0 ? (
             <LegeStaat tekst="Nog geen lessen ingepland." />
