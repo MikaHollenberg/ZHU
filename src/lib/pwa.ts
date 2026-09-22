@@ -12,6 +12,15 @@ export function isIos(): boolean {
   return isAppleMobiel || isIpadAlsMac
 }
 
+// Andere iOS-browsers draaien onder de motorkap ook op Safari's engine, maar
+// "Zet op beginscherm" werkt daar niet vanuit hun eigen deelmenu — vandaar
+// dit onderscheid, puur op basis van hun eigen user-agent-token.
+export function isIosSafari(): boolean {
+  if (!isIos()) return false
+  const ua = window.navigator.userAgent
+  return !/crios|fxios|edgios|opios|mercury|duckduckgo/i.test(ua)
+}
+
 export function isStandalone(): boolean {
   if (typeof window === 'undefined') return false
   const nav = window.navigator as Navigator & { standalone?: boolean }

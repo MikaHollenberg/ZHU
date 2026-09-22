@@ -174,9 +174,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const primaryNav = archived ? [] : navItemsForRole(profile?.rol)
   const profileItem: NavItem = { to: '/profiel', label: 'Mijn gegevens', icon: UserIcon }
   const navItems = archived ? [] : [...primaryNav, profileItem]
-  // De mobiele onderbalk had al weinig ruimte — Home staat daar niet apart in,
-  // de topbalk-logo linkt al naar "/" op mobiel.
-  const mobileNavItems = navItems.filter((item) => item.to !== '/')
+  const mobileNavItems = navItems
 
   const kanRondleidingZien = !archived && profile?.rol !== 'beheerder'
   const tourSteps = useMemo(
@@ -463,7 +461,7 @@ export function Layout({ children }: { children: ReactNode }) {
             const Icon = item.icon
             const badge = item.showBadge && pendingCount > 0 ? pendingCount : undefined
             return (
-              <NavLink key={item.to} to={item.to} className={mobileTabClass}>
+              <NavLink key={item.to} to={item.to} end={item.to === '/'} className={mobileTabClass}>
                 <Icon className="h-5 w-5" />
                 {item.to === '/profiel' ? 'Profiel' : item.label}
                 {badge !== undefined && <NavBadge count={badge} />}

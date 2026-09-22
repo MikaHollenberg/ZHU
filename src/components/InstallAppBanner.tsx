@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { isIos, isStandalone } from '../lib/pwa'
+import { isIos, isIosSafari, isStandalone } from '../lib/pwa'
 import { ShareIcon, XIcon } from './icons'
 
 const DISMISS_KEY = 'zhu_pwa_install_dismissed_tot'
@@ -11,6 +11,8 @@ interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
 }
+
+type Variant = 'ios-safari' | 'ios-anders' | 'android'
 
 function isDismissed(): boolean {
   try {
@@ -31,27 +33,25 @@ function bewaarDismiss() {
 
 export function InstallAppBanner() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
-  const [tonen, setTonen] = useState(false)
-  const [ios, setIos] = useState(false)
+  const [variant, setVariant] = useState<Variant | null>(null)
 
   useEffect(() => {
     if (isStandalone() || isDismissed()) return
 
-    // iOS krijgt nooit een beforeinstallprompt-event — daar tonen we de
-    // handmatige "Zet op beginscherm"-uitleg altijd (zolang niet gedismissed).
+    // iOS krijgt nooit een beforeinstallprompt-event — daar tonen we altijd
+    // de handmatige uitleg (welke, hangt af van Safari of een andere browser).
     if (isIos()) {
-      setIos(true)
-      setTonen(true)
+      setVariant(isIosSafari() ? 'ios-safari' : 'ios-anders')
       return
     }
 
     const onBeforeInstall = (event: Event) => {
       event.preventDefault()
       setDeferredPrompt(event as BeforeInstallPromptEvent)
-      setTonen(true)
+      setVariant('android')
     }
     const onInstalled = () => {
-      setTonen(false)
+      setVariant(null)
       setDeferredPrompt(null)
     }
 
@@ -63,10 +63,10 @@ export function InstallAppBanner() {
     }
   }, [])
 
-  if (!tonen) return null
+  if (!variant) return null
 
-  const handleSluiten = () => {
-    setTonen(false)
+  const sluiten = () => {
+    setVariant(null)
     bewaarDismiss()
   }
 
@@ -75,49 +75,99 @@ export function InstallAppBanner() {
     await deferredPrompt.prompt()
     await deferredPrompt.userChoice
     setDeferredPrompt(null)
-    setTonen(false)
+    setVariant(null)
   }
 
   return (
-    <div className="fixed inset-x-4 bottom-20 z-30 sm:inset-x-auto sm:bottom-4 sm:right-4 sm:w-96">
-      <div className="card flex items-start gap-3 p-4 shadow-lg animate-toast-in">
-        <img src="/icon-192.png" alt="" className="h-10 w-10 flex-none rounded-lg" />
-        <div className="min-w-0 flex-1">
-          <p className="font-semibold text-slate-800">Installeer ZHU Zeilles</p>
-          {ios ? (
-            <p className="mt-0.5 text-sm text-slate-600">
-              Tik op <ShareIcon className="mx-0.5 inline-block h-4 w-4 align-text-bottom text-brand-blue" />{' '}
-              (<span className="font-medium">delen</span>) onderin Safari en kies{' '}
-              <span className="font-semibold">"Zet op beginscherm"</span>.
+    // Alleen op telefoonformaat (sm:hidden) — op desktop hoeft deze niet te
+    // komen, ook niet als Chrome daar toevallig ook een beforeinstallprompt geeft.
+    <div
+      className="fixed inset-0 z-40 flex items-end justify-center bg-black/60 sm:hidden"
+      onClick={sluiten}
+    >
+      <div
+        className="w-full max-w-md animate-toast-in rounded-t-3xl bg-white p-5 shadow-2xl"
+        style={{ paddingBottom: 'max(20px, env(safe-area-inset-bottom))' }}
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="mb-3 flex items-start justify-between">
+          <span
+            className={`badge ${
+              variant === 'ios-anders'
+                ? 'bg-status-wachtend-bg text-status-wachtend'
+                : 'bg-brand-blue-light/25 text-brand-blue-dark'
+            }`}
+          >
+            {variant === 'ios-anders' ? 'Alleen via Safari' : 'Aanbevolen · niet verplicht'}
+          </span>
+          <button
+            type="button"
+            onClick={sluiten}
+            aria-label="Sluiten"
+            className="flex h-7 w-7 flex-none items-center justify-center rounded-full text-slate-400 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-600"
+          >
+            <XIcon className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="mb-3.5 flex gap-3">
+          <span className="flex h-12 w-12 flex-none items-center justify-center rounded-2xl bg-brand-blue-dark text-2xl">
+            ⛵
+          </span>
+          <div className="min-w-0">
+            <p className="font-bold text-slate-800">
+              {variant === 'android' ? 'Zet ZHU Zeilles op je startscherm' : 'Zet dit portal op je beginscherm'}
             </p>
-          ) : (
-            <p className="mt-0.5 text-sm text-slate-600">
-              Voeg het portal toe aan je startscherm voor snelle toegang, net als een echte app.
+            <p className="mt-1 text-sm text-slate-500">
+              Handig, maar zeker geen must — je opent het portal dan net zo snel als een gewone app.
             </p>
-          )}
-          <div className="mt-2.5 flex items-center gap-3">
-            {!ios && (
-              <button type="button" onClick={handleInstalleren} className="btn-primary px-3.5 py-1.5 text-sm">
-                Installeren
-              </button>
-            )}
+          </div>
+        </div>
+
+        {variant === 'ios-safari' && (
+          <div className="mb-3.5 flex items-start gap-2.5 rounded-2xl bg-brand-blue-light/10 p-3.5">
+            <ShareIcon className="h-5 w-5 flex-none text-brand-blue-dark" />
+            <p className="text-sm text-slate-700">
+              Tik in <strong>Safari</strong> op het deel-icoon in de werkbalk, en kies daarna{' '}
+              <strong>"Zet op beginscherm"</strong>.
+            </p>
+          </div>
+        )}
+
+        {variant === 'ios-anders' && (
+          <div className="mb-3.5 flex items-start gap-2.5 rounded-2xl border border-status-wachtend/25 bg-status-wachtend-bg p-3.5">
+            <span aria-hidden="true" className="text-base leading-none">
+              ⚠️
+            </span>
+            <p className="text-sm text-status-wachtend">
+              <strong>Let op:</strong> dit werkt alleen via Safari. Open deze link in Safari om er een webapp van te
+              maken.
+            </p>
+          </div>
+        )}
+
+        {variant === 'android' ? (
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={handleInstalleren} className="btn-primary flex-1">
+              Installeren
+            </button>
             <button
               type="button"
-              onClick={handleSluiten}
-              className="text-sm font-medium text-slate-500 transition-colors hover:text-slate-700 hover:underline"
+              onClick={sluiten}
+              className="text-sm font-semibold text-slate-500 transition-colors hover:text-slate-700 hover:underline"
             >
               Niet nu
             </button>
           </div>
-        </div>
-        <button
-          type="button"
-          onClick={handleSluiten}
-          aria-label="Sluiten"
-          className="flex h-6 w-6 flex-none items-center justify-center rounded-full text-slate-400 transition-colors duration-150 hover:bg-slate-100 hover:text-slate-600"
-        >
-          <XIcon className="h-3.5 w-3.5" />
-        </button>
+        ) : (
+          <button
+            type="button"
+            onClick={sluiten}
+            className="w-full rounded-full bg-brand-blue-light/15 py-3 text-sm font-bold text-brand-blue-dark transition-colors duration-150 hover:bg-brand-blue-light/25"
+          >
+            Begrepen
+          </button>
+        )}
       </div>
     </div>
   )
