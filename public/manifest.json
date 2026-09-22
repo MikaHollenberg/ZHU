@@ -1,7 +1,7 @@
 {
-  "name": "ZHU Zeilles — Zeilschool Het Uitgeestermeer",
+  "name": "ZHU Zeilles — Watersportcentrum Het Uitgeestermeer",
   "short_name": "ZHU Zeilles",
-  "description": "Priveles-portal van Zeilschool Het Uitgeestermeer: beschikbaarheid doorgeven, lessen inzien en inplannen.",
+  "description": "Priveles-portal van Watersportcentrum Het Uitgeestermeer: beschikbaarheid doorgeven, lessen inzien en inplannen.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

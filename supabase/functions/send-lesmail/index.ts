@@ -10,7 +10,7 @@
 //
 // Vereiste secrets (Project Settings -> Edge Functions -> Secrets):
 //   RESEND_API_KEY   - API-key van resend.com
-//   EMAIL_FROM       - bijv. "Zeilschool Het Uitgeestermeer <noreply@zeilschooluitgeest.nl>"
+//   EMAIL_FROM       - bijv. "Watersportcentrum Het Uitgeestermeer <noreply@zeilschooluitgeest.nl>"
 //                       (vereist een geverifieerd domein bij Resend; zonder
 //                       secret valt dit terug op Resend se test-adres)
 // SUPABASE_URL en SUPABASE_SERVICE_ROLE_KEY staan al standaard klaar voor
@@ -62,7 +62,7 @@ function layout(titel: string, inhoudHtml: string) {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;margin:0 auto;">
       <tr>
         <td style="padding-bottom:20px;font-size:16px;font-weight:700;color:#1f6d99;">
-          ⛵ Zeilschool Het Uitgeestermeer
+          ⛵ Watersportcentrum Het Uitgeestermeer
         </td>
       </tr>
       <tr>
@@ -95,7 +95,7 @@ Deno.serve(async (req: Request) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!
   const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   const resendApiKey = Deno.env.get('RESEND_API_KEY')
-  const emailFrom = Deno.env.get('EMAIL_FROM') ?? 'Zeilschool Het Uitgeestermeer <onboarding@resend.dev>'
+  const emailFrom = Deno.env.get('EMAIL_FROM') ?? 'Watersportcentrum Het Uitgeestermeer <onboarding@resend.dev>'
 
   const admin = createClient(supabaseUrl, serviceRoleKey)
 

@@ -6,14 +6,14 @@ export function Privacybeleid() {
 
       <div className="space-y-4 text-slate-700">
         <p>
-          Dit privacybeleid gaat over het cursisten- en instructeursportal van Zeilschool Het Uitgeestermeer, waarmee
+          Dit privacybeleid gaat over het cursisten- en instructeursportal van Watersportcentrum Het Uitgeestermeer, waarmee
           je beschikbaarheid doorgeeft en je priveslessen inziet. Hieronder lees je welke gegevens we verwerken,
           waarom, en welke rechten je hebt.
         </p>
 
         <h2 className="pt-4 text-lg font-semibold text-brand-blue-dark">Wie we zijn</h2>
         <p>
-          Zeilschool Het Uitgeestermeer (Zeilschool &amp; Bootverhuur Het Uitgeestermeer)
+          Watersportcentrum Het Uitgeestermeer (Zeilschool &amp; Bootverhuur Het Uitgeestermeer)
           <br />
           Lagendijk 3a, 1911 MT Uitgeest
           <br />

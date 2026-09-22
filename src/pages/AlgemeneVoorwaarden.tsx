@@ -6,7 +6,7 @@ export function AlgemeneVoorwaarden() {
 
       <div className="space-y-4 text-slate-700">
         <p>
-          Zeilschool Het Uitgeestermeer (Zeilschool &amp; Bootverhuur Het Uitgeestermeer) is lid van HISWA Vereniging
+          Watersportcentrum Het Uitgeestermeer (Zeilschool &amp; Bootverhuur Het Uitgeestermeer) is lid van HISWA Vereniging
           en hanteert voor al haar vaarinstructie de{' '}
           <a
             href="https://www.zeilschooluitgeest.nl/elements/docs/voorwaarden.pdf"
@@ -110,7 +110,7 @@ export function AlgemeneVoorwaarden() {
 
         <h2 className="pt-4 text-lg font-semibold text-brand-blue-dark">Contactgegevens</h2>
         <p>
-          Zeilschool Het Uitgeestermeer
+          Watersportcentrum Het Uitgeestermeer
           <br />
           Lagendijk 3a, 1911 MT Uitgeest
           <br />

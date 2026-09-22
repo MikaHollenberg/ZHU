@@ -72,7 +72,7 @@ export function HandigeInfo() {
 
       <h2 className="pt-8 text-lg font-semibold text-brand-blue-dark">Waar je ons vindt</h2>
       <p className="mt-2 text-slate-700">
-        Zeilschool Het Uitgeestermeer
+        Watersportcentrum Het Uitgeestermeer
         <br />
         Lagendijk 3a, 1911 MT Uitgeest
         <br />
