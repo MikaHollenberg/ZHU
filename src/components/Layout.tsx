@@ -248,7 +248,6 @@ export function Layout({ children }: { children: ReactNode }) {
     return (
       <div className="flex min-h-screen flex-col bg-brand-blue-light/15">
         <SkipLink />
-        <InstallAppBanner />
         <header className="border-b border-brand-blue-light/40 bg-white shadow-sm">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
             <Link to="/" className="flex items-center gap-2 text-lg font-semibold text-brand-blue-dark">
