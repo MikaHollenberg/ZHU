@@ -10,6 +10,7 @@ import { useMeldingen } from '../lib/useMeldingen'
 import { OnboardingTour } from './OnboardingTour'
 import { MeldingenBel } from './MeldingenBel'
 import { EasterEggBoat } from './EasterEggBoat'
+import { InstallAppBanner } from './InstallAppBanner'
 import {
   BookIcon,
   CalendarIcon,
@@ -249,6 +250,7 @@ export function Layout({ children }: { children: ReactNode }) {
     return (
       <div className="flex min-h-screen flex-col bg-brand-blue-light/15">
         <SkipLink />
+        <InstallAppBanner />
         <header className="border-b border-brand-blue-light/40 bg-white shadow-sm">
           <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
             <Link to="/" className="flex items-center gap-2 text-lg font-semibold text-brand-blue-dark">
@@ -272,6 +274,7 @@ export function Layout({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-brand-blue-light/10 sm:flex">
       <SkipLink />
       {easterEggActief && <EasterEggBoat />}
+      <InstallAppBanner />
 
       {/* Desktop zijbalk */}
       <aside className="sticky top-0 z-20 hidden h-screen w-60 flex-shrink-0 flex-col gap-5 bg-gradient-to-b from-sidebar to-sidebar-deep px-3.5 py-5 sm:flex">
