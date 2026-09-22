@@ -12,13 +12,14 @@ export function isIos(): boolean {
   return isAppleMobiel || isIpadAlsMac
 }
 
-// Andere iOS-browsers draaien onder de motorkap ook op Safari's engine, maar
+// Andere iOS-apps met een ingebouwde browser (Chrome, Firefox, Edge, de
+// Google-app/GSA, ...) draaien onder de motorkap ook op Safari's engine, maar
 // "Zet op beginscherm" werkt daar niet vanuit hun eigen deelmenu — vandaar
 // dit onderscheid, puur op basis van hun eigen user-agent-token.
 export function isIosSafari(): boolean {
   if (!isIos()) return false
   const ua = window.navigator.userAgent
-  return !/crios|fxios|edgios|opios|mercury|duckduckgo/i.test(ua)
+  return !/crios|fxios|edgios|opios|gsa|mercury|duckduckgo|fban|fbav|instagram|linkedinapp/i.test(ua)
 }
 
 export function isStandalone(): boolean {
