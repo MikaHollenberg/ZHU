@@ -78,6 +78,14 @@ export function InstallAppBanner() {
     setVariant(null)
   }
 
+  // Niet-officiële, maar veelgebruikte truc: iOS herkent het "x-safari-https://"
+  // schema en geeft de link altijd aan Safari, ook vanuit de ingebouwde
+  // browser van een andere app. Werkt betrouwbaar in Chrome/de Google-app,
+  // kan geblokkeerd zijn in sommige extra afgeschermde in-app-browsers.
+  const openInSafari = () => {
+    window.location.href = window.location.href.replace(/^http/, 'x-safari-http')
+  }
+
   return (
     // Alleen op telefoonformaat (sm:hidden) — op desktop hoeft deze niet te
     // komen, ook niet als Chrome daar toevallig ook een beforeinstallprompt geeft.
@@ -146,7 +154,7 @@ export function InstallAppBanner() {
           </div>
         )}
 
-        {variant === 'android' ? (
+        {variant === 'android' && (
           <div className="flex items-center gap-3">
             <button type="button" onClick={handleInstalleren} className="btn-primary flex-1">
               Installeren
@@ -159,7 +167,24 @@ export function InstallAppBanner() {
               Niet nu
             </button>
           </div>
-        ) : (
+        )}
+
+        {variant === 'ios-anders' && (
+          <div className="flex flex-col gap-2">
+            <button type="button" onClick={openInSafari} className="btn-primary w-full">
+              Open in Safari
+            </button>
+            <button
+              type="button"
+              onClick={sluiten}
+              className="w-full rounded-full bg-brand-blue-light/15 py-3 text-sm font-bold text-brand-blue-dark transition-colors duration-150 hover:bg-brand-blue-light/25"
+            >
+              Begrepen
+            </button>
+          </div>
+        )}
+
+        {variant === 'ios-safari' && (
           <button
             type="button"
             onClick={sluiten}
